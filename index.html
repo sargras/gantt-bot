@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小微企业家 - 甘特图语音助手</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🗓️ 甘特图语音助手</h1>
+        <p class="subtitle">推荐使用手机访问，用输入法的语音输入功能</p>
+
+        <div class="input-area">
+            <!-- 添加 inputmode 和 x-webkit-speech 属性支持移动端语音 -->
+            <textarea 
+                id="commandInput" 
+                placeholder="请点击输入框，然后使用手机键盘的麦克风图标进行语音输入..."
+                inputmode="text"
+            ></textarea>
+            
+            <div class="mobile-tips">
+                <div class="tip-item">
+                    <span class="tip-icon">📱</span>
+                    <span>用手机浏览器打开此页面</span>
+                </div>
+                <div class="tip-item">
+                    <span class="tip-icon">🎤</span>
+                    <span>点击输入框，选择键盘上的麦克风图标</span>
+                </div>
+                <div class="tip-item">
+                    <span class="tip-icon">🎯</span>
+                    <span>说话后文字会自动填入，点击下方按钮生成图表</span>
+                </div>
+            </div>
+
+            <button onclick="processCommand()">生成甘特图</button>
+        </div>
+
+        <div class="examples">
+            <h3>💡 语音指令示例：</h3>
+            <div class="example-cards">
+                <div class="example-card" onclick="setExample(0)">
+                    "创建网站开发项目，下周一开始，三周时间。第一周需求分析，第二周设计，第三周开发测试"
+                </div>
+                <div class="example-card" onclick="setExample(1)">
+                    "新产品发布计划，共15天。前5天市场调研，中间5天产品开发，最后5天测试上线"
+                </div>
+                <div class="example-card" onclick="setExample(2)">
+                    "营销活动策划，明天开始。3天方案设计，2天内容制作，3天执行推广"
+                </div>
+            </div>
+        </div>
+
+        <div id="errorMessage" class="error"></div>
+        <div id="gantt-container"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
