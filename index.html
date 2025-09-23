@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全平台甘特图语音助手</title>
+    <title>智能甘特图语音助手</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
 </head>
@@ -12,8 +12,8 @@
         <!-- 头部 -->
         <header class="header">
             <h1>🗓️ 智能甘特图助手</h1>
-            <p class="subtitle">全平台支持 · 语音控制 · 实时编辑</p>
-            <div class="platform-indicator" id="platformIndicator"></div>
+            <p class="subtitle">语音控制 · 智能编辑 · 全平台支持</p>
+            <div class="platform-indicator" id="platformIndicator">💻 检测设备中...</div>
         </header>
 
         <!-- 甘特图区域 -->
@@ -22,16 +22,16 @@
                 <h2 id="projectTitle">📊 项目甘特图</h2>
                 <div class="gantt-controls">
                     <button class="control-btn" onclick="changeViewMode('Day')">日视图</button>
-                    <button class="control-btn" onclick="changeViewMode('Week')">周视图</button>
+                    <button class="control-btn active" onclick="changeViewMode('Week')">周视图</button>
                     <button class="control-btn" onclick="changeViewMode('Month')">月视图</button>
-                    <button class="control-btn" onclick="exportData()">💾 导出</button>
+                    <button class="control-btn" onclick="exportImage()">💾 导出图片</button>
                 </div>
             </div>
             <div id="gantt-container" class="gantt-container">
                 <div class="placeholder">
                     <div class="placeholder-icon">📈</div>
                     <div class="placeholder-text">等待生成甘特图</div>
-                    <div class="placeholder-hint">使用语音或文本输入项目计划</div>
+                    <div class="placeholder-hint">使用语音或文本指令创建项目计划</div>
                 </div>
             </div>
         </section>
@@ -39,15 +39,15 @@
         <!-- 输入控制区域 -->
         <section class="control-section">
             <div class="section-header">
-                <h2>🎤 输入控制</h2>
+                <h2>🎤 智能输入</h2>
                 <div class="input-methods">
-                    <button class="method-btn active" data-method="voice">语音输入</button>
-                    <button class="method-btn" data-method="text">文本输入</button>
+                    <button class="method-btn active" onclick="switchInputMethod('voice')">语音输入</button>
+                    <button class="method-btn" onclick="switchInputMethod('text')">文本输入</button>
                 </div>
             </div>
 
             <!-- 语音输入区域 -->
-            <div class="input-area voice-area active">
+            <div id="voiceArea" class="input-area active">
                 <div class="voice-controls">
                     <button id="voiceButton" class="voice-btn" onclick="toggleVoiceRecognition()">
                         <span class="voice-icon">🎤</span>
@@ -59,48 +59,88 @@
                     </div>
                 </div>
                 
-                <div class="device-specific-guide" id="deviceGuide">
-                    <!-- 设备特定指南会动态显示 -->
+                <div class="device-guide" id="deviceGuide">
+                    <!-- 设备指南动态生成 -->
                 </div>
             </div>
 
             <!-- 文本输入区域 -->
-            <div class="input-area text-area">
-                <textarea id="textInput" placeholder="请输入项目计划指令...&#10;例如：创建网站项目，三周时间，第一周需求分析，第二周设计，第三周开发测试"></textarea>
+            <div id="textArea" class="input-area">
+                <textarea id="textInput" placeholder="请输入指令...&#10;&#10;示例指令：&#10;• 创建网站项目，三周时间&#10;• 添加测试任务，需要5天&#10;• 把开发时间延长到10天&#10;• 删除文档编写任务"></textarea>
             </div>
 
             <!-- 操作按钮 -->
             <div class="action-buttons">
-                <button class="btn-primary" onclick="processInput()">🚀 生成/更新甘特图</button>
-                <button class="btn-secondary" onclick="clearAll()">🗑️ 清空重来</button>
-                <button class="btn-tertiary" onclick="showExamples()">📚 指令示例</button>
+                <button class="btn-primary" onclick="processCommand()">🚀 执行指令</button>
+                <button class="btn-secondary" onclick="showHelp()">❓ 指令帮助</button>
+                <button class="btn-tertiary" onclick="clearAll()">🗑️ 清空重来</button>
+            </div>
+
+            <!-- 快速指令按钮 -->
+            <div class="quick-commands">
+                <h4>⚡ 快速操作</h4>
+                <div class="quick-buttons">
+                    <button class="quick-btn" onclick="quickCommand('create')">📋 创建项目</button>
+                    <button class="quick-btn" onclick="quickCommand('add')">➕ 添加任务</button>
+                    <button class="quick-btn" onclick="quickCommand('edit')">✏️ 编辑任务</button>
+                    <button class="quick-btn" onclick="quickCommand('delete')">🗑️ 删除任务</button>
+                </div>
             </div>
         </section>
 
-        <!-- 示例面板 -->
-        <div class="examples-panel" id="examplesPanel">
+        <!-- 指令帮助面板 -->
+        <div id="helpPanel" class="help-panel">
             <div class="panel-header">
-                <h3>💡 指令示例库</h3>
-                <button class="close-btn" onclick="hideExamples()">×</button>
+                <h3>💡 智能指令手册</h3>
+                <button class="close-btn" onclick="hideHelp()">×</button>
             </div>
-            <div class="examples-grid">
-                <div class="example-category">
+            <div class="help-content">
+                <div class="command-category">
                     <h4>📋 创建项目</h4>
-                    <div class="example-item" onclick="loadExample(0)">创建网站开发项目，三周时间</div>
-                    <div class="example-item" onclick="loadExample(1)">新产品发布计划，共15天完成</div>
-                    <div class="example-item" onclick="loadExample(2)">营销活动策划，10天时间</div>
+                    <div class="command-item">
+                        <code>"创建网站开发项目，三周时间"</code>
+                        <span>新建项目并自动分配时间</span>
+                    </div>
+                    <div class="command-item">
+                        <code>"开始新产品计划，明天启动"</code>
+                        <span>指定开始时间创建项目</span>
+                    </div>
                 </div>
-                <div class="example-category">
+                
+                <div class="command-category">
+                    <h4>➕ 添加任务</h4>
+                    <div class="command-item">
+                        <code>"添加测试任务，需要5天"</code>
+                        <span>在项目末尾添加新任务</span>
+                    </div>
+                    <div class="command-item">
+                        <code>"在开发后加入代码评审"</code>
+                        <span>在特定任务后插入任务</span>
+                    </div>
+                </div>
+                
+                <div class="command-category">
                     <h4>✏️ 编辑任务</h4>
-                    <div class="example-item" onclick="loadExample(3)">把开发时间延长到10天</div>
-                    <div class="example-item" onclick="loadExample(4)">添加技术评审任务，需要2天</div>
-                    <div class="example-item" onclick="loadExample(5)">调整测试阶段为5天时间</div>
+                    <div class="command-item">
+                        <code>"把开发时间延长到10天"</code>
+                        <span>调整任务持续时间</span>
+                    </div>
+                    <div class="command-item">
+                        <code>"将测试提前两天开始"</code>
+                        <span>调整任务开始时间</span>
+                    </div>
                 </div>
-                <div class="example-category">
-                    <h4>⏱️ 时间设置</h4>
-                    <div class="example-item" onclick="loadExample(6)">项目下周一开始，工期20天</div>
-                    <div class="example-item" onclick="loadExample(7)">明天开始项目，第一周规划，第二周执行</div>
-                    <div class="example-item" onclick="loadExample(8)">设置项目从2024年1月1日开始</div>
+                
+                <div class="command-category">
+                    <h4>🗑️ 删除任务</h4>
+                    <div class="command-item">
+                        <code>"删除文档编写任务"</code>
+                        <span>移除指定任务</span>
+                    </div>
+                    <div class="command-item">
+                        <code>"取消性能测试环节"</code>
+                        <span>删除匹配的任务</span>
+                    </div>
                 </div>
             </div>
         </div>
