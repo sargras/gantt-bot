@@ -3,79 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能甘特图语音助手</title>
+    <title>全平台甘特图语音助手</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
 </head>
 <body>
     <div class="container">
-        <!-- 顶部标题 -->
-        <header>
-            <h1>🗓️ 智能甘特图语音助手</h1>
-            <p class="subtitle">语音控制 · 实时编辑 · 智能解析</p>
+        <!-- 头部 -->
+        <header class="header">
+            <h1>🗓️ 智能甘特图助手</h1>
+            <p class="subtitle">全平台支持 · 语音控制 · 实时编辑</p>
+            <div class="platform-indicator" id="platformIndicator"></div>
         </header>
 
-        <!-- 甘特图显示区域 -->
+        <!-- 甘特图区域 -->
         <section class="gantt-section">
-            <div class="gantt-header">
-                <h3 id="projectTitle">📊 项目甘特图</h3>
+            <div class="section-header">
+                <h2 id="projectTitle">📊 项目甘特图</h2>
                 <div class="gantt-controls">
-                    <button onclick="zoomIn()">🔍 放大</button>
-                    <button onclick="zoomOut()">🔍 缩小</button>
-                    <button onclick="exportImage()">💾 导出图片</button>
+                    <button class="control-btn" onclick="changeViewMode('Day')">日视图</button>
+                    <button class="control-btn" onclick="changeViewMode('Week')">周视图</button>
+                    <button class="control-btn" onclick="changeViewMode('Month')">月视图</button>
+                    <button class="control-btn" onclick="exportData()">💾 导出</button>
                 </div>
             </div>
-            <div id="gantt-container" class="gantt-chart">
-                <div class="placeholder">等待生成甘特图...</div>
+            <div id="gantt-container" class="gantt-container">
+                <div class="placeholder">
+                    <div class="placeholder-icon">📈</div>
+                    <div class="placeholder-text">等待生成甘特图</div>
+                    <div class="placeholder-hint">使用语音或文本输入项目计划</div>
+                </div>
             </div>
         </section>
 
-        <!-- 语音控制区域 -->
+        <!-- 输入控制区域 -->
         <section class="control-section">
-            <div class="input-area">
+            <div class="section-header">
+                <h2>🎤 输入控制</h2>
+                <div class="input-methods">
+                    <button class="method-btn active" data-method="voice">语音输入</button>
+                    <button class="method-btn" data-method="text">文本输入</button>
+                </div>
+            </div>
+
+            <!-- 语音输入区域 -->
+            <div class="input-area voice-area active">
                 <div class="voice-controls">
                     <button id="voiceButton" class="voice-btn" onclick="toggleVoiceRecognition()">
-                        <span class="icon">🎤</span>
+                        <span class="voice-icon">🎤</span>
                         <span id="voiceText">点击开始语音输入</span>
                     </button>
-                    <div id="voiceStatus" class="voice-status">准备就绪</div>
+                    <div class="voice-status">
+                        <span id="voiceStatus">准备就绪</span>
+                        <span class="recording-dot" id="recordingDot"></span>
+                    </div>
                 </div>
-
-                <textarea id="commandInput" placeholder="语音识别结果将显示在这里...或者直接输入文字指令"></textarea>
                 
-                <div class="action-buttons">
-                    <button onclick="processCommand()" class="btn-primary">🚀 生成/更新甘特图</button>
-                    <button onclick="clearAll()" class="btn-secondary">🗑️ 清空重来</button>
-                    <button onclick="addSampleData()" class="btn-tertiary">📋 加载示例</button>
+                <div class="device-specific-guide" id="deviceGuide">
+                    <!-- 设备特定指南会动态显示 -->
                 </div>
             </div>
 
-            <!-- 语音指令示例 -->
-            <div class="examples">
-                <h4>🎯 常用语音指令示例：</h4>
-                <div class="example-grid">
-                    <div class="example-card" onclick="setExample(0)">
-                        <strong>创建项目：</strong>"创建网站开发项目，三周时间"
-                    </div>
-                    <div class="example-card" onclick="setExample(1)">
-                        <strong>添加任务：</strong>"添加需求分析任务，需要5天时间"
-                    </div>
-                    <div class="example-card" onclick="setExample(2)">
-                        <strong>编辑任务：</strong>"把开发时间延长到10天"
-                    </div>
-                    <div class="example-card" onclick="setExample(3)">
-                        <strong>复杂指令：</strong>"项目下周一开始，第一周需求设计，第二周开发，第三周测试上线"
-                    </div>
-                </div>
+            <!-- 文本输入区域 -->
+            <div class="input-area text-area">
+                <textarea id="textInput" placeholder="请输入项目计划指令...&#10;例如：创建网站项目，三周时间，第一周需求分析，第二周设计，第三周开发测试"></textarea>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="action-buttons">
+                <button class="btn-primary" onclick="processInput()">🚀 生成/更新甘特图</button>
+                <button class="btn-secondary" onclick="clearAll()">🗑️ 清空重来</button>
+                <button class="btn-tertiary" onclick="showExamples()">📚 指令示例</button>
             </div>
         </section>
 
-        <!-- 操作提示 -->
-        <div class="tips">
-            <div class="tip-item">💡 <strong>语音技巧：</strong> 说话清晰，包含时间信息（如"3天"、"下周一开始"）</div>
-            <div class="tip-item">📱 <strong>移动端：</strong> 点击输入框后使用键盘麦克风图标，识别更准确</div>
-            <div class="tip-item">⚡ <strong>编辑功能：</strong> 可直接拖拽甘特图任务条调整时间</div>
+        <!-- 示例面板 -->
+        <div class="examples-panel" id="examplesPanel">
+            <div class="panel-header">
+                <h3>💡 指令示例库</h3>
+                <button class="close-btn" onclick="hideExamples()">×</button>
+            </div>
+            <div class="examples-grid">
+                <div class="example-category">
+                    <h4>📋 创建项目</h4>
+                    <div class="example-item" onclick="loadExample(0)">创建网站开发项目，三周时间</div>
+                    <div class="example-item" onclick="loadExample(1)">新产品发布计划，共15天完成</div>
+                    <div class="example-item" onclick="loadExample(2)">营销活动策划，10天时间</div>
+                </div>
+                <div class="example-category">
+                    <h4>✏️ 编辑任务</h4>
+                    <div class="example-item" onclick="loadExample(3)">把开发时间延长到10天</div>
+                    <div class="example-item" onclick="loadExample(4)">添加技术评审任务，需要2天</div>
+                    <div class="example-item" onclick="loadExample(5)">调整测试阶段为5天时间</div>
+                </div>
+                <div class="example-category">
+                    <h4>⏱️ 时间设置</h4>
+                    <div class="example-item" onclick="loadExample(6)">项目下周一开始，工期20天</div>
+                    <div class="example-item" onclick="loadExample(7)">明天开始项目，第一周规划，第二周执行</div>
+                    <div class="example-item" onclick="loadExample(8)">设置项目从2024年1月1日开始</div>
+                </div>
+            </div>
         </div>
+
+        <!-- 消息提示 -->
+        <div id="messageToast" class="toast"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
