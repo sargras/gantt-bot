@@ -430,8 +430,6 @@ function exportImage() {
     showToast('导出功能开发中...', 'info');
 }
 
-// 继续 script.js 代码
-
 function showToast(message, type = 'success') {
     const toast = document.getElementById('messageToast');
     toast.textContent = message;
@@ -839,10 +837,13 @@ function processCommand() {
     }
 }
 
-// 添加导入功能到UI（可选）
+// 添加导入功能到UI
 function addImportFeature() {
+    // 检查是否已存在导入按钮
+    if (document.querySelector('.import-btn')) return;
+    
     const importBtn = document.createElement('button');
-    importBtn.className = 'btn-tertiary';
+    importBtn.className = 'btn-tertiary import-btn';
     importBtn.innerHTML = '📁 导入项目';
     importBtn.onclick = () => {
         const input = document.createElement('input');
@@ -852,7 +853,10 @@ function addImportFeature() {
         input.click();
     };
     
-    document.querySelector('.action-buttons').appendChild(importBtn);
+    // 添加到操作按钮区域
+    const actionButtons = document.querySelector('.action-buttons');
+    const clearBtn = actionButtons.querySelector('.btn-tertiary');
+    actionButtons.insertBefore(importBtn, clearBtn);
 }
 
 // 初始化时添加导入功能
