@@ -8,30 +8,6 @@ let projectData = {
     tasks: []
 };
 
-// 智能指令库
-const commandExamples = {
-    create: [
-        "创建网站开发项目，三周时间",
-        "新建移动应用计划，明天开始",
-        "开始营销活动项目，工期一个月"
-    ],
-    add: [
-        "添加测试任务，需要5天时间",
-        "在开发后加入代码评审环节",
-        "项目最后添加用户培训"
-    ],
-    edit: [
-        "把开发时间延长到10天",
-        "将测试提前两天开始",
-        "调整设计阶段为7天"
-    ],
-    delete: [
-        "删除文档编写任务",
-        "取消性能测试环节",
-        "去掉最后的验收阶段"
-    ]
-};
-
 // 设备检测
 function detectPlatform() {
     const ua = navigator.userAgent;
@@ -45,6 +21,7 @@ function detectPlatform() {
 
 // 初始化
 function init() {
+    console.log('初始化智能甘特图助手...');
     const platform = detectPlatform();
     document.getElementById('platformIndicator').textContent = 
         `${platform.icon} ${platform.name}`;
@@ -54,7 +31,10 @@ function init() {
     
     // 只有桌面端初始化语音识别
     if (platform.type === 'desktop') {
+        console.log('桌面设备，初始化语音识别...');
         initSpeechRecognition();
+    } else {
+        console.log('移动设备，使用原生语音输入...');
     }
     
     // 加载示例项目
@@ -103,80 +83,140 @@ function showDeviceGuide(platform) {
 
 // 语音输入处理（统一入口）
 function handleVoiceInput() {
+    console.log('语音按钮被点击');
     const platform = detectPlatform();
     
     if (platform.type === 'mobile') {
         // 移动端：引导使用自带语音输入
-        showToast('请点击上方输入框，使用键盘的麦克风图标进行语音输入', 'info');
+        console.log('移动设备，引导使用原生输入法');
+        showToast('请点击上方输入框，然后使用键盘的麦克风图标进行语音输入', 'info');
         document.getElementById('textInput').focus();
     } else {
         // 桌面端：使用Web Speech API
+        console.log('桌面设备，启动语音识别');
         toggleVoiceRecognition();
     }
 }
 
 // 语音识别初始化（仅桌面端）
 function initSpeechRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    console.log('初始化语音识别...');
     
-    if (!SpeechRecognition) {
-        showToast('浏览器不支持语音识别', 'warning');
+    // 检查浏览器支持
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        console.error('浏览器不支持语音识别');
+        showToast('您的浏览器不支持语音识别功能', 'error');
+        updateVoiceUI(false, "❌ 不支持语音");
         return false;
     }
 
-    speechRecognizer = new SpeechRecognition();
-    speechRecognizer.continuous = false;
-    speechRecognizer.interimResults = false;
-    speechRecognizer.lang = 'zh-CN';
-
-    speechRecognizer.onstart = function() {
-        isListening = true;
-        updateVoiceUI(true, "🎤 正在聆听...");
-        document.getElementById('recordingDot').classList.add('recording');
-    };
-
-    speechRecognizer.onresult = function(event) {
-        const transcript = event.results[0][0].transcript;
-        document.getElementById('textInput').value = transcript;
-        updateVoiceUI(false, "✅ 识别成功");
-        document.getElementById('recordingDot').classList.remove('recording');
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    try {
+        speechRecognizer = new SpeechRecognition();
+        console.log('语音识别器创建成功');
         
-        showToast('语音识别完成！', 'success');
-        setTimeout(processCommand, 500);
-    };
+        speechRecognizer.continuous = false;
+        speechRecognizer.interimResults = false;
+        speechRecognizer.lang = 'zh-CN';
+        speechRecognizer.maxAlternatives = 1;
 
-    speechRecognizer.onerror = function(event) {
-        isListening = false;
-        updateVoiceUI(false, "❌ 识别失败");
-        document.getElementById('recordingDot').classList.remove('recording');
-        showToast('语音识别错误: ' + event.error, 'error');
-    };
+        speechRecognizer.onstart = function() {
+            console.log('语音识别开始');
+            isListening = true;
+            updateVoiceUI(true, "🎤 正在聆听...");
+            document.getElementById('recordingDot').classList.add('recording');
+            showToast('正在聆听，请说话...', 'info');
+        };
 
-    speechRecognizer.onend = function() {
-        isListening = false;
-        document.getElementById('recordingDot').classList.remove('recording');
-    };
+        speechRecognizer.onresult = function(event) {
+            console.log('语音识别结果:', event);
+            const transcript = event.results[0][0].transcript;
+            console.log('识别文本:', transcript);
+            
+            document.getElementById('textInput').value = transcript;
+            updateVoiceUI(false, "✅ 识别成功");
+            document.getElementById('recordingDot').classList.remove('recording');
+            
+            showToast('语音识别完成！', 'success');
+            setTimeout(processCommand, 500);
+        };
 
-    return true;
+        speechRecognizer.onerror = function(event) {
+            console.error('语音识别错误:', event.error);
+            isListening = false;
+            updateVoiceUI(false, "❌ 识别失败");
+            document.getElementById('recordingDot').classList.remove('recording');
+            
+            let errorMsg = "语音识别错误";
+            switch(event.error) {
+                case 'no-speech': errorMsg = "没有检测到语音"; break;
+                case 'audio-capture': errorMsg = "无法访问麦克风"; break;
+                case 'not-allowed': errorMsg = "麦克风权限被拒绝"; break;
+                case 'network': errorMsg = "网络错误"; break;
+                default: errorMsg = `识别错误: ${event.error}`;
+            }
+            
+            showToast(errorMsg, 'error');
+        };
+
+        speechRecognizer.onend = function() {
+            console.log('语音识别结束');
+            isListening = false;
+            document.getElementById('recordingDot').classList.remove('recording');
+            if (!document.getElementById('voiceStatus').textContent.includes('成功')) {
+                updateVoiceUI(false, "准备就绪");
+            }
+        };
+
+        return true;
+    } catch (error) {
+        console.error('语音识别初始化失败:', error);
+        showToast('语音识别初始化失败', 'error');
+        return false;
+    }
 }
 
 // 切换语音识别（仅桌面端）
 function toggleVoiceRecognition() {
-    if (!speechRecognizer && !initSpeechRecognition()) return;
+    console.log('切换语音识别状态, 当前状态:', isListening);
+    
+    if (!speechRecognizer) {
+        console.log('语音识别器未初始化，尝试初始化...');
+        if (!initSpeechRecognition()) {
+            showToast('语音识别初始化失败', 'error');
+            return;
+        }
+    }
 
     if (isListening) {
+        console.log('停止语音识别');
         speechRecognizer.stop();
     } else {
+        console.log('开始语音识别');
         try {
-            speechRecognizer.start();
+            // 检查麦克风权限
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(function(stream) {
+                    console.log('麦克风权限已获得');
+                    stream.getTracks().forEach(track => track.stop()); // 停止流以释放资源
+                    speechRecognizer.start();
+                })
+                .catch(function(error) {
+                    console.error('麦克风权限被拒绝:', error);
+                    showToast('请允许麦克风权限以使用语音输入', 'error');
+                    updateVoiceUI(false, "❌ 需要权限");
+                });
         } catch (error) {
-            showToast('请刷新页面后重试', 'error');
+            console.error('启动语音识别失败:', error);
+            showToast('启动语音识别失败: ' + error.message, 'error');
         }
     }
 }
 
 // 更新语音界面
 function updateVoiceUI(listening, status) {
+    console.log('更新语音界面:', { listening, status });
     const button = document.getElementById('voiceButton');
     const statusEl = document.getElementById('voiceStatus');
     const voiceText = document.getElementById('voiceText');
@@ -184,23 +224,71 @@ function updateVoiceUI(listening, status) {
     if (listening) {
         button.classList.add('listening');
         voiceText.textContent = '正在聆听...';
+        statusEl.textContent = status;
     } else {
         button.classList.remove('listening');
         voiceText.textContent = '点击开始语音输入';
+        statusEl.textContent = status;
     }
-    statusEl.textContent = status;
+}
+
+// 修复HTML中的onclick绑定问题
+function fixEventBindings() {
+    // 确保语音按钮正确绑定
+    const voiceButton = document.getElementById('voiceButton');
+    if (voiceButton) {
+        voiceButton.onclick = handleVoiceInput;
+    }
+    
+    // 确保方法切换按钮正确绑定
+    const methodButtons = document.querySelectorAll('.method-btn');
+    methodButtons.forEach(btn => {
+        const method = btn.textContent.includes('语音') ? 'voice' : 'text';
+        btn.onclick = function() { switchInputMethod(method); };
+    });
 }
 
 // 输入方法切换
 function switchInputMethod(method) {
+    console.log('切换输入方法:', method);
     document.querySelectorAll('.method-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.input-area').forEach(area => area.classList.remove('active'));
     
-    const methodBtn = document.querySelector(`.method-btn[onclick="switchInputMethod('${method}')"]`);
+    const methodBtn = document.querySelector(`.method-btn[onclick*="${method}"]`);
     if (methodBtn) methodBtn.classList.add('active');
     
     const area = document.getElementById(method + 'Area');
     if (area) area.classList.add('active');
+}
+
+// 事件监听器设置
+function setupEventListeners() {
+    console.log('设置事件监听器...');
+    
+    // 修复事件绑定
+    fixEventBindings();
+    
+    // 文本输入框回车键支持
+    document.getElementById('textInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && e.ctrlKey) {
+            e.preventDefault();
+            processCommand();
+        }
+    });
+    
+    // 页面点击事件调试
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'voiceButton' || e.target.closest('#voiceButton')) {
+            console.log('语音按钮被点击（全局监听）');
+        }
+    });
+    
+    // 页面可见性变化时重置语音状态
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden && isListening) {
+            speechRecognizer.stop();
+        }
+    });
 }
 
 // 智能时间解析器
@@ -212,7 +300,6 @@ class TimeParser {
     parse(timeExpression) {
         const lowerExpr = timeExpression.toLowerCase();
         
-        // 相对时间解析
         if (lowerExpr.includes('明天')) {
             const date = new Date(this.referenceDate);
             date.setDate(date.getDate() + 1);
@@ -221,7 +308,6 @@ class TimeParser {
         
         if (lowerExpr.includes('下周')) {
             const date = new Date(this.referenceDate);
-            // 找到下周一
             const day = date.getDay();
             const daysUntilMonday = day === 0 ? 1 : 8 - day;
             date.setDate(date.getDate() + daysUntilMonday);
@@ -231,18 +317,16 @@ class TimeParser {
         if (lowerExpr.includes('下个月')) {
             const date = new Date(this.referenceDate);
             date.setMonth(date.getMonth() + 1);
-            date.setDate(1); // 设置为下个月1号
+            date.setDate(1);
             return date;
         }
         
-        // 绝对时间解析 (简单版本)
         const dateMatch = timeExpression.match(/(\d{4})[年.-]?(\d{1,2})[月.-]?(\d{1,2})/);
         if (dateMatch) {
             const [, year, month, day] = dateMatch;
             return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
         }
         
-        // 默认返回当前时间
         return new Date(this.referenceDate);
     }
     
@@ -250,30 +334,19 @@ class TimeParser {
         const lowerExpr = durationExpr.toLowerCase();
         let days = 0;
         
-        // 解析天数
         const dayMatch = lowerExpr.match(/(\d+)\s*天/);
-        if (dayMatch) {
-            days += parseInt(dayMatch[1]);
-        }
+        if (dayMatch) days += parseInt(dayMatch[1]);
         
-        // 解析周数
         const weekMatch = lowerExpr.match(/(\d+)\s*周/);
-        if (weekMatch) {
-            days += parseInt(weekMatch[1]) * 7;
-        }
+        if (weekMatch) days += parseInt(weekMatch[1]) * 7;
         
-        // 解析中文数字
         const chineseNumbers = { '一':1, '二':2, '三':3, '四':4, '五':5, '六':6, '七':7, '八':8, '九':9, '十':10 };
         for (const [cn, num] of Object.entries(chineseNumbers)) {
-            if (lowerExpr.includes(cn + '天')) {
-                days += num;
-            }
-            if (lowerExpr.includes(cn + '周')) {
-                days += num * 7;
-            }
+            if (lowerExpr.includes(cn + '天')) days += num;
+            if (lowerExpr.includes(cn + '周')) days += num * 7;
         }
         
-        return days > 0 ? days : 7; // 默认1周
+        return days > 0 ? days : 7;
     }
 }
 
@@ -282,7 +355,6 @@ function parseCommand(text) {
     console.log('解析指令:', text);
     const lowerText = text.toLowerCase();
     
-    // 检测指令类型
     if (/(创建|新建|开始).*项目/.test(lowerText) || projectData.tasks.length === 0) {
         return parseCreateCommand(text);
     } else if (/(添加|加入|插入).*任务/.test(lowerText)) {
@@ -292,32 +364,25 @@ function parseCommand(text) {
     } else if (/(调整|修改|改变|延长|缩短|提前|推后).*任务/.test(lowerText)) {
         return parseEditCommand(text);
     } else {
-        // 尝试智能推断
         return trySmartParse(text);
     }
 }
 
-// 尝试智能推断指令类型
 function trySmartParse(text) {
     const timeParser = new TimeParser();
-    
-    // 如果包含时间信息，尝试作为添加任务处理
     if (text.match(/(\d+[天周]|[一二三四五六七八九十][天周])/)) {
         return parseAddCommand("添加" + text);
     }
-    
-    // 默认作为创建项目处理
     return parseCreateCommand(text);
 }
 
-// 解析创建项目指令（增强时间识别）
+// 解析创建项目指令
 function parseCreateCommand(text) {
     const timeParser = new TimeParser();
     const projectName = extractProjectName(text) || '我的项目';
     const duration = timeParser.parseDuration(text) || 21;
     const startDate = timeParser.parse(text);
     
-    // 智能任务分配
     const tasks = createSmartTasks(startDate, duration, projectName);
     
     projectData = { 
@@ -330,11 +395,9 @@ function parseCreateCommand(text) {
     return projectData;
 }
 
-// 创建智能任务分配
 function createSmartTasks(startDate, totalDuration, projectType) {
     let taskTemplates = [];
     
-    // 根据项目类型选择不同的任务模板
     if (projectType.includes('网站') || projectType.includes('Web')) {
         taskTemplates = [
             { name: "需求分析", ratio: 0.15 },
@@ -343,16 +406,7 @@ function createSmartTasks(startDate, totalDuration, projectType) {
             { name: "后端开发", ratio: 0.25 },
             { name: "测试上线", ratio: 0.10 }
         ];
-    } else if (projectType.includes('APP') || projectType.includes('应用')) {
-        taskTemplates = [
-            { name: "需求调研", ratio: 0.10 },
-            { name: "原型设计", ratio: 0.15 },
-            { name: "UI设计", ratio: 0.20 },
-            { name: "开发实现", ratio: 0.40 },
-            { name: "测试发布", ratio: 0.15 }
-        ];
     } else {
-        // 通用模板
         taskTemplates = [
             { name: "规划阶段", ratio: 0.20 },
             { name: "执行阶段", ratio: 0.60 },
@@ -370,24 +424,21 @@ function createSmartTasks(startDate, totalDuration, projectType) {
             start: new Date(currentDate),
             duration: duration
         });
-        
         currentDate.setDate(currentDate.getDate() + duration);
     });
     
     return tasks;
 }
 
-// 解析添加任务指令（增强时间识别）
+// 解析添加任务指令
 function parseAddCommand(text) {
     const timeParser = new TimeParser();
     const taskName = extractTaskName(text) || '新任务';
     const duration = timeParser.parseDuration(text) || 5;
     
-    // 确定插入位置
-    let insertIndex = projectData.tasks.length; // 默认插入到最后
+    let insertIndex = projectData.tasks.length;
     let afterTask = null;
     
-    // 检查是否指定了插入位置
     if (text.includes('后') || text.includes('之后')) {
         for (let i = 0; i < projectData.tasks.length; i++) {
             if (text.includes(projectData.tasks[i].name) || 
@@ -399,7 +450,6 @@ function parseAddCommand(text) {
         }
     }
     
-    // 计算开始时间
     let startDate;
     if (afterTask) {
         const afterEndDate = new Date(afterTask.start);
@@ -421,16 +471,12 @@ function parseAddCommand(text) {
         duration: duration
     };
     
-    // 插入新任务
     projectData.tasks.splice(insertIndex, 0, newTask);
-    
-    // 重新计算后续任务的开始时间
     recalculateTaskTimeline();
     
     return projectData;
 }
 
-// 重新计算任务时间线
 function recalculateTaskTimeline() {
     for (let i = 1; i < projectData.tasks.length; i++) {
         const prevTask = projectData.tasks[i - 1];
@@ -439,26 +485,23 @@ function recalculateTaskTimeline() {
         const prevEndDate = new Date(prevTask.start);
         prevEndDate.setDate(prevEndDate.getDate() + prevTask.duration);
         
-        // 如果当前任务开始时间早于前一个任务结束时间，进行调整
         if (currentTask.start < prevEndDate) {
             currentTask.start = new Date(prevEndDate);
         }
     }
 }
 
-// 解析编辑任务指令（增强时间识别）
+// 解析编辑任务指令
 function parseEditCommand(text) {
     const timeParser = new TimeParser();
     const lowerText = text.toLowerCase();
     
-    // 查找要编辑的任务
     let targetTask = null;
     for (const task of projectData.tasks) {
         if (text.includes(task.name) || 
             text.includes(task.name.substring(0, 2)) ||
             (task.name.includes('开发') && lowerText.includes('开发')) ||
-            (task.name.includes('测试') && lowerText.includes('测试')) ||
-            (task.name.includes('设计') && lowerText.includes('设计'))) {
+            (task.name.includes('测试') && lowerText.includes('测试'))) {
             targetTask = task;
             break;
         }
@@ -469,8 +512,7 @@ function parseEditCommand(text) {
         return projectData;
     }
     
-    // 处理时间延长/缩短
-    if (lowerText.includes('延长') || lowerText.includes('增加') || lowerText.includes('加')) {
+    if (lowerText.includes('延长') || lowerText.includes('增加')) {
         const durationChange = timeParser.parseDuration(text) || 2;
         targetTask.duration += durationChange;
         showToast(`已将"${targetTask.name}"延长${durationChange}天`, 'success');
@@ -481,7 +523,6 @@ function parseEditCommand(text) {
         showToast(`已将"${targetTask.name}"缩短${durationChange}天`, 'success');
     }
     
-    // 处理时间提前/推后
     if (lowerText.includes('提前')) {
         const days = timeParser.parseDuration(text) || 2;
         targetTask.start.setDate(targetTask.start.getDate() - days);
@@ -493,9 +534,7 @@ function parseEditCommand(text) {
         showToast(`已将"${targetTask.name}"推后${days}天开始`, 'success');
     }
     
-    // 重新计算时间线
     recalculateTaskTimeline();
-    
     return projectData;
 }
 
@@ -580,106 +619,11 @@ function generateGanttChart(data) {
         language: 'zh',
         on_click: (task) => {
             showToast(`选中任务: ${task.name}`, 'info');
-        },
-        on_date_change: (task, start, end) => {
-            // 支持拖拽编辑
-            handleDragEdit(task.id, start, end);
         }
     });
 }
 
-// 处理拖拽编辑
-function handleDragEdit(taskId, start, end) {
-    const taskIndex = parseInt(taskId.replace('Task-', ''));
-    if (projectData.tasks[taskIndex]) {
-        const startDate = new Date(start);
-        const endDate = new Date(end);
-        const duration = Math.ceil((endDate - startDate) / (24 * 60 * 60 * 1000));
-        
-        projectData.tasks[taskIndex].start = startDate;
-        projectData.tasks[taskIndex].duration = duration;
-        
-        // 重新计算时间线
-        recalculateTaskTimeline();
-        
-        // 刷新甘特图
-        generateGanttChart(projectData);
-        showToast('任务时间已更新', 'success');
-    }
-}
-
-// 导出为图片
-function exportAsImage() {
-    const ganttContainer = document.getElementById('gantt-container');
-    
-    html2canvas(ganttContainer, {
-        scale: 2, // 提高分辨率
-        useCORS: true,
-        logging: false
-    }).then(canvas => {
-        const link = document.createElement('a');
-        link.download = `甘特图_${projectData.name}_${new Date().toISOString().split('T')[0]}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        showToast('图片导出成功！', 'success');
-    }).catch(error => {
-        console.error('导出图片失败:', error);
-        showToast('图片导出失败', 'error');
-    });
-}
-
-// 导出项目数据
-function exportProjectData() {
-    const data = {
-        project: projectData,
-        exportTime: new Date().toISOString(),
-        version: '1.0'
-    };
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `项目数据_${projectData.name}_${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    showToast('项目数据导出成功', 'success');
-}
-
-// 导入项目数据
-function importProjectData() {
-    document.getElementById('fileInput').click();
-}
-
-// 处理文件导入
-document.getElementById('fileInput').addEventListener('change', function(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const data = JSON.parse(e.target.result);
-            if (data.project && data.project.tasks) {
-                projectData = data.project;
-                updateProjectTitle(projectData.name);
-                generateGanttChart(projectData);
-                showToast('项目数据导入成功', 'success');
-            } else {
-                showToast('无效的项目文件', 'error');
-            }
-        } catch (error) {
-            showToast('文件解析失败', 'error');
-        }
-    };
-    reader.readAsText(file);
-    
-    // 清空文件输入
-    event.target.value = '';
-});
-
-// 其他现有函数保持不变...
+// 其他功能保持不变...
 function changeViewMode(mode) {
     currentViewMode = mode;
     document.querySelectorAll('.control-btn').forEach(btn => btn.classList.remove('active'));
@@ -688,13 +632,6 @@ function changeViewMode(mode) {
     if (currentGantt) {
         currentGantt.change_view_mode(mode);
     }
-}
-
-function quickCommand(type) {
-    const examples = commandExamples[type];
-    const randomExample = examples[Math.floor(Math.random() * examples.length)];
-    document.getElementById('textInput').value = randomExample;
-    showToast(`已填充${type}指令示例`, 'info');
 }
 
 function showHelp() {
@@ -733,7 +670,6 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
-// 加载示例项目
 function loadSampleProject() {
     if (projectData.tasks.length > 0) return;
     
@@ -741,26 +677,10 @@ function loadSampleProject() {
     projectData = {
         name: '示例项目',
         tasks: [
-            {
-                name: "需求分析与规划",
-                start: new Date(startDate),
-                duration: 3
-            },
-            {
-                name: "UI/UX 设计",
-                start: new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000),
-                duration: 5
-            },
-            {
-                name: "前端开发",
-                start: new Date(startDate.getTime() + 8 * 24 * 60 * 60 * 1000),
-                duration: 7
-            },
-            {
-                name: "测试与上线",
-                start: new Date(startDate.getTime() + 15 * 24 * 60 * 60 * 1000),
-                duration: 4
-            }
+            { name: "需求分析", start: new Date(startDate), duration: 3 },
+            { name: "UI设计", start: new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000), duration: 5 },
+            { name: "开发", start: new Date(startDate.getTime() + 8 * 24 * 60 * 60 * 1000), duration: 7 },
+            { name: "测试", start: new Date(startDate.getTime() + 15 * 24 * 60 * 60 * 1000), duration: 4 }
         ]
     };
     
@@ -768,21 +688,10 @@ function loadSampleProject() {
     generateGanttChart(projectData);
 }
 
-// 事件监听器设置
-function setupEventListeners() {
-    // 文本输入框回车键支持
-    document.getElementById('textInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && e.ctrlKey) {
-            e.preventDefault();
-            processCommand();
-        }
-    });
-}
-
 // 页面加载初始化
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('页面加载完成，开始初始化...');
     init();
-    console.log('智能甘特图助手已初始化');
 });
 
 // 响应式调整
@@ -793,3 +702,5 @@ window.addEventListener('resize', function() {
         }, 100);
     }
 });
+
+console.log('智能甘特图助手代码加载完成');
