@@ -35,12 +35,12 @@ const commandExamples = {
 // 设备检测
 function detectPlatform() {
     const ua = navigator.userAgent;
-    if (/Windows/.test(ua)) return { name: 'Windows', icon: '🪟' };
-    if (/Macintosh/.test(ua)) return { name: 'Mac', icon: '🍎' };
-    if (/iPad/.test(ua)) return { name: 'iPad', icon: '📱' };
-    if (/iPhone/.test(ua)) return { name: 'iPhone', icon: '📱' };
-    if (/Android/.test(ua)) return { name: 'Android', icon: '📱' };
-    return { name: '未知设备', icon: '💻' };
+    if (/Windows/.test(ua)) return { name: 'Windows', icon: '🪟', type: 'desktop' };
+    if (/Macintosh/.test(ua)) return { name: 'Mac', icon: '🍎', type: 'desktop' };
+    if (/iPad/.test(ua)) return { name: 'iPad', icon: '📱', type: 'mobile' };
+    if (/iPhone/.test(ua)) return { name: 'iPhone', icon: '📱', type: 'mobile' };
+    if (/Android/.test(ua)) return { name: 'Android', icon: '📱', type: 'mobile' };
+    return { name: '未知设备', icon: '💻', type: 'desktop' };
 }
 
 // 初始化
@@ -52,18 +52,44 @@ function init() {
     showDeviceGuide(platform);
     setupEventListeners();
     
-    if (platform.name === 'Windows' || platform.name === 'Mac') {
+    // 只有桌面端初始化语音识别
+    if (platform.type === 'desktop') {
         initSpeechRecognition();
     }
+    
+    // 加载示例项目
+    setTimeout(loadSampleProject, 500);
 }
 
 // 显示设备指南
 function showDeviceGuide(platform) {
     const guide = document.getElementById('deviceGuide');
-    let html = '';
     
-    if (platform.name === 'Windows' || platform.name === 'Mac') {
-        html = `
+    if (platform.type === 'mobile') {
+        guide.innerHTML = `
+            <div class="mobile-voice-guide">
+                <strong>📱 移动端语音输入指南</strong>
+                <div class="guide-steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div>点击输入框</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div>点击键盘🎤图标</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div>开始说话</div>
+                    </div>
+                </div>
+                <div style="font-size: 0.9em; color: #666;">
+                    说话后文字会自动填入，点击"执行指令"即可生成甘特图
+                </div>
+            </div>
+        `;
+    } else {
+        guide.innerHTML = `
             <div class="guide-item">
                 <span class="guide-icon">🎤</span>
                 <div>
@@ -72,39 +98,24 @@ function showDeviceGuide(platform) {
                 </div>
             </div>
         `;
-    } else {
-        html = `
-            <div class="guide-item">
-                <span class="guide-icon">📱</span>
-                <div>
-                    <strong>移动端语音输入</strong>
-                    <div>点击输入框 → 键盘麦克风图标 → 开始说话</div>
-                </div>
-            </div>
-            <div class="guide-item">
-                <span class="guide-icon">💡</span>
-                <div>
-                    <strong>提示</strong>
-                    <div>移动端建议使用文本输入，识别更准确</div>
-                </div>
-            </div>
-        `;
     }
+}
+
+// 语音输入处理（统一入口）
+function handleVoiceInput() {
+    const platform = detectPlatform();
     
-    guide.innerHTML = html;
+    if (platform.type === 'mobile') {
+        // 移动端：引导使用自带语音输入
+        showToast('请点击上方输入框，使用键盘的麦克风图标进行语音输入', 'info');
+        document.getElementById('textInput').focus();
+    } else {
+        // 桌面端：使用Web Speech API
+        toggleVoiceRecognition();
+    }
 }
 
-// 事件监听器设置
-function setupEventListeners() {
-    // 文本输入框回车键支持
-    document.getElementById('textInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && e.ctrlKey) {
-            processCommand();
-        }
-    });
-}
-
-// 语音识别初始化
+// 语音识别初始化（仅桌面端）
 function initSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
@@ -149,16 +160,8 @@ function initSpeechRecognition() {
     return true;
 }
 
-// 切换语音识别
+// 切换语音识别（仅桌面端）
 function toggleVoiceRecognition() {
-    const platform = detectPlatform();
-    
-    if (platform.name === 'iPad' || platform.name === 'iPhone' || platform.name === 'Android') {
-        showToast('请使用设备自带的语音输入功能', 'info');
-        document.getElementById('textInput').focus();
-        return;
-    }
-
     if (!speechRecognizer && !initSpeechRecognition()) return;
 
     if (isListening) {
@@ -193,8 +196,85 @@ function switchInputMethod(method) {
     document.querySelectorAll('.method-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.input-area').forEach(area => area.classList.remove('active'));
     
-    document.querySelector(`.method-btn[onclick="switchInputMethod('${method}')"]`).classList.add('active');
-    document.getElementById(method + 'Area').classList.add('active');
+    const methodBtn = document.querySelector(`.method-btn[onclick="switchInputMethod('${method}')"]`);
+    if (methodBtn) methodBtn.classList.add('active');
+    
+    const area = document.getElementById(method + 'Area');
+    if (area) area.classList.add('active');
+}
+
+// 智能时间解析器
+class TimeParser {
+    constructor(referenceDate = new Date()) {
+        this.referenceDate = referenceDate;
+    }
+    
+    parse(timeExpression) {
+        const lowerExpr = timeExpression.toLowerCase();
+        
+        // 相对时间解析
+        if (lowerExpr.includes('明天')) {
+            const date = new Date(this.referenceDate);
+            date.setDate(date.getDate() + 1);
+            return date;
+        }
+        
+        if (lowerExpr.includes('下周')) {
+            const date = new Date(this.referenceDate);
+            // 找到下周一
+            const day = date.getDay();
+            const daysUntilMonday = day === 0 ? 1 : 8 - day;
+            date.setDate(date.getDate() + daysUntilMonday);
+            return date;
+        }
+        
+        if (lowerExpr.includes('下个月')) {
+            const date = new Date(this.referenceDate);
+            date.setMonth(date.getMonth() + 1);
+            date.setDate(1); // 设置为下个月1号
+            return date;
+        }
+        
+        // 绝对时间解析 (简单版本)
+        const dateMatch = timeExpression.match(/(\d{4})[年.-]?(\d{1,2})[月.-]?(\d{1,2})/);
+        if (dateMatch) {
+            const [, year, month, day] = dateMatch;
+            return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        }
+        
+        // 默认返回当前时间
+        return new Date(this.referenceDate);
+    }
+    
+    parseDuration(durationExpr) {
+        const lowerExpr = durationExpr.toLowerCase();
+        let days = 0;
+        
+        // 解析天数
+        const dayMatch = lowerExpr.match(/(\d+)\s*天/);
+        if (dayMatch) {
+            days += parseInt(dayMatch[1]);
+        }
+        
+        // 解析周数
+        const weekMatch = lowerExpr.match(/(\d+)\s*周/);
+        if (weekMatch) {
+            days += parseInt(weekMatch[1]) * 7;
+        }
+        
+        // 解析中文数字
+        const chineseNumbers = { '一':1, '二':2, '三':3, '四':4, '五':5, '六':6, '七':7, '八':8, '九':9, '十':10 };
+        for (const [cn, num] of Object.entries(chineseNumbers)) {
+            if (lowerExpr.includes(cn + '天')) {
+                days += num;
+            }
+            if (lowerExpr.includes(cn + '周')) {
+                days += num * 7;
+            }
+        }
+        
+        return days > 0 ? days : 7; // 默认1周
+    }
 }
 
 // 智能指令解析
@@ -203,55 +283,218 @@ function parseCommand(text) {
     const lowerText = text.toLowerCase();
     
     // 检测指令类型
-    if (/(创建|新建|开始).*项目/.test(lowerText)) {
+    if (/(创建|新建|开始).*项目/.test(lowerText) || projectData.tasks.length === 0) {
         return parseCreateCommand(text);
     } else if (/(添加|加入|插入).*任务/.test(lowerText)) {
         return parseAddCommand(text);
     } else if (/(删除|取消|去掉).*任务/.test(lowerText)) {
         return parseDeleteCommand(text);
-    } else if (/(调整|修改|改变|延长|缩短).*任务/.test(lowerText)) {
+    } else if (/(调整|修改|改变|延长|缩短|提前|推后).*任务/.test(lowerText)) {
         return parseEditCommand(text);
     } else {
-        return parseCreateCommand(text); // 默认按创建处理
+        // 尝试智能推断
+        return trySmartParse(text);
     }
 }
 
-// 解析创建项目指令
+// 尝试智能推断指令类型
+function trySmartParse(text) {
+    const timeParser = new TimeParser();
+    
+    // 如果包含时间信息，尝试作为添加任务处理
+    if (text.match(/(\d+[天周]|[一二三四五六七八九十][天周])/)) {
+        return parseAddCommand("添加" + text);
+    }
+    
+    // 默认作为创建项目处理
+    return parseCreateCommand(text);
+}
+
+// 解析创建项目指令（增强时间识别）
 function parseCreateCommand(text) {
+    const timeParser = new TimeParser();
     const projectName = extractProjectName(text) || '我的项目';
-    const duration = extractDuration(text) || 21; // 默认3周
-    const startDate = new Date();
+    const duration = timeParser.parseDuration(text) || 21;
+    const startDate = timeParser.parse(text);
     
-    const tasks = [
-        { name: "需求分析", start: new Date(startDate), duration: Math.floor(duration * 0.2) },
-        { name: "方案设计", start: new Date(startDate.getTime() + duration * 0.2 * 86400000), duration: Math.floor(duration * 0.3) },
-        { name: "开发实施", start: new Date(startDate.getTime() + duration * 0.5 * 86400000), duration: Math.floor(duration * 0.4) },
-        { name: "测试验收", start: new Date(startDate.getTime() + duration * 0.9 * 86400000), duration: Math.floor(duration * 0.1) }
-    ].filter(task => task.duration > 0);
+    // 智能任务分配
+    const tasks = createSmartTasks(startDate, duration, projectName);
     
-    projectData = { name: projectName, tasks };
+    projectData = { 
+        name: projectName, 
+        tasks: tasks,
+        startDate: startDate,
+        totalDuration: duration
+    };
+    
     return projectData;
 }
 
-// 解析添加任务指令
+// 创建智能任务分配
+function createSmartTasks(startDate, totalDuration, projectType) {
+    let taskTemplates = [];
+    
+    // 根据项目类型选择不同的任务模板
+    if (projectType.includes('网站') || projectType.includes('Web')) {
+        taskTemplates = [
+            { name: "需求分析", ratio: 0.15 },
+            { name: "UI/UX设计", ratio: 0.20 },
+            { name: "前端开发", ratio: 0.30 },
+            { name: "后端开发", ratio: 0.25 },
+            { name: "测试上线", ratio: 0.10 }
+        ];
+    } else if (projectType.includes('APP') || projectType.includes('应用')) {
+        taskTemplates = [
+            { name: "需求调研", ratio: 0.10 },
+            { name: "原型设计", ratio: 0.15 },
+            { name: "UI设计", ratio: 0.20 },
+            { name: "开发实现", ratio: 0.40 },
+            { name: "测试发布", ratio: 0.15 }
+        ];
+    } else {
+        // 通用模板
+        taskTemplates = [
+            { name: "规划阶段", ratio: 0.20 },
+            { name: "执行阶段", ratio: 0.60 },
+            { name: "收尾阶段", ratio: 0.20 }
+        ];
+    }
+    
+    const tasks = [];
+    let currentDate = new Date(startDate);
+    
+    taskTemplates.forEach(template => {
+        const duration = Math.max(1, Math.floor(totalDuration * template.ratio));
+        tasks.push({
+            name: template.name,
+            start: new Date(currentDate),
+            duration: duration
+        });
+        
+        currentDate.setDate(currentDate.getDate() + duration);
+    });
+    
+    return tasks;
+}
+
+// 解析添加任务指令（增强时间识别）
 function parseAddCommand(text) {
+    const timeParser = new TimeParser();
     const taskName = extractTaskName(text) || '新任务';
-    const duration = extractDuration(text) || 5;
-    const position = text.includes('后') ? 'after' : 'end';
+    const duration = timeParser.parseDuration(text) || 5;
+    
+    // 确定插入位置
+    let insertIndex = projectData.tasks.length; // 默认插入到最后
+    let afterTask = null;
+    
+    // 检查是否指定了插入位置
+    if (text.includes('后') || text.includes('之后')) {
+        for (let i = 0; i < projectData.tasks.length; i++) {
+            if (text.includes(projectData.tasks[i].name) || 
+                text.includes(projectData.tasks[i].name.substring(0, 2))) {
+                afterTask = projectData.tasks[i];
+                insertIndex = i + 1;
+                break;
+            }
+        }
+    }
+    
+    // 计算开始时间
+    let startDate;
+    if (afterTask) {
+        const afterEndDate = new Date(afterTask.start);
+        afterEndDate.setDate(afterEndDate.getDate() + afterTask.duration);
+        startDate = afterEndDate;
+    } else {
+        if (projectData.tasks.length > 0) {
+            const lastTask = projectData.tasks[projectData.tasks.length - 1];
+            startDate = new Date(lastTask.start);
+            startDate.setDate(startDate.getDate() + lastTask.duration);
+        } else {
+            startDate = new Date();
+        }
+    }
     
     const newTask = {
         name: taskName,
-        start: new Date(),
+        start: startDate,
         duration: duration
     };
     
-    if (position === 'end' || projectData.tasks.length === 0) {
-        projectData.tasks.push(newTask);
-    } else {
-        // 简单实现：添加到倒数第二个任务后面
-        const insertIndex = Math.max(0, projectData.tasks.length - 1);
-        projectData.tasks.splice(insertIndex, 0, newTask);
+    // 插入新任务
+    projectData.tasks.splice(insertIndex, 0, newTask);
+    
+    // 重新计算后续任务的开始时间
+    recalculateTaskTimeline();
+    
+    return projectData;
+}
+
+// 重新计算任务时间线
+function recalculateTaskTimeline() {
+    for (let i = 1; i < projectData.tasks.length; i++) {
+        const prevTask = projectData.tasks[i - 1];
+        const currentTask = projectData.tasks[i];
+        
+        const prevEndDate = new Date(prevTask.start);
+        prevEndDate.setDate(prevEndDate.getDate() + prevTask.duration);
+        
+        // 如果当前任务开始时间早于前一个任务结束时间，进行调整
+        if (currentTask.start < prevEndDate) {
+            currentTask.start = new Date(prevEndDate);
+        }
     }
+}
+
+// 解析编辑任务指令（增强时间识别）
+function parseEditCommand(text) {
+    const timeParser = new TimeParser();
+    const lowerText = text.toLowerCase();
+    
+    // 查找要编辑的任务
+    let targetTask = null;
+    for (const task of projectData.tasks) {
+        if (text.includes(task.name) || 
+            text.includes(task.name.substring(0, 2)) ||
+            (task.name.includes('开发') && lowerText.includes('开发')) ||
+            (task.name.includes('测试') && lowerText.includes('测试')) ||
+            (task.name.includes('设计') && lowerText.includes('设计'))) {
+            targetTask = task;
+            break;
+        }
+    }
+    
+    if (!targetTask) {
+        showToast('未找到要编辑的任务', 'warning');
+        return projectData;
+    }
+    
+    // 处理时间延长/缩短
+    if (lowerText.includes('延长') || lowerText.includes('增加') || lowerText.includes('加')) {
+        const durationChange = timeParser.parseDuration(text) || 2;
+        targetTask.duration += durationChange;
+        showToast(`已将"${targetTask.name}"延长${durationChange}天`, 'success');
+    }
+    else if (lowerText.includes('缩短') || lowerText.includes('减少')) {
+        const durationChange = timeParser.parseDuration(text) || 1;
+        targetTask.duration = Math.max(1, targetTask.duration - durationChange);
+        showToast(`已将"${targetTask.name}"缩短${durationChange}天`, 'success');
+    }
+    
+    // 处理时间提前/推后
+    if (lowerText.includes('提前')) {
+        const days = timeParser.parseDuration(text) || 2;
+        targetTask.start.setDate(targetTask.start.getDate() - days);
+        showToast(`已将"${targetTask.name}"提前${days}天开始`, 'success');
+    }
+    else if (lowerText.includes('推后') || lowerText.includes('推迟')) {
+        const days = timeParser.parseDuration(text) || 2;
+        targetTask.start.setDate(targetTask.start.getDate() + days);
+        showToast(`已将"${targetTask.name}"推后${days}天开始`, 'success');
+    }
+    
+    // 重新计算时间线
+    recalculateTaskTimeline();
     
     return projectData;
 }
@@ -278,29 +521,6 @@ function parseDeleteCommand(text) {
     return projectData;
 }
 
-// 解析编辑任务指令
-function parseEditCommand(text) {
-    const lowerText = text.toLowerCase();
-    const keyword = extractKeyword(text);
-    const durationChange = extractDurationChange(text);
-    
-    projectData.tasks.forEach(task => {
-        if (task.name.includes(keyword)) {
-            if (durationChange) {
-                task.duration = Math.max(1, task.duration + durationChange);
-            }
-            if (lowerText.includes('提前')) {
-                task.start.setDate(task.start.getDate() - 2);
-            } else if (lowerText.includes('推迟')) {
-                task.start.setDate(task.start.getDate() + 2);
-            }
-        }
-    });
-    
-    showToast('任务已更新', 'success');
-    return projectData;
-}
-
 // 工具函数
 function extractProjectName(text) {
     const match = text.match(/(创建|新建|开始)(一个)?(.+?)(项目|计划)/);
@@ -315,23 +535,6 @@ function extractTaskName(text) {
 function extractKeyword(text) {
     const matches = text.match(/(需求|设计|开发|测试|分析|评审|培训|验收)/);
     return matches ? matches[0] : '任务';
-}
-
-function extractDuration(text) {
-    const matches = text.match(/(\d+)[天周]|([一二三四五六七八九十])[天周]/);
-    if (!matches) return null;
-    
-    let num = matches[1] ? parseInt(matches[1]) : 
-             matches[2] ? ['一','二','三','四','五','六','七','八','九','十'].indexOf(matches[2]) + 1 : 3;
-    
-    if (text.includes('周')) num *= 7;
-    return num;
-}
-
-function extractDurationChange(text) {
-    if (text.includes('延长')) return 2;
-    if (text.includes('缩短')) return -1;
-    return 0;
 }
 
 // 主处理函数
@@ -377,316 +580,52 @@ function generateGanttChart(data) {
         language: 'zh',
         on_click: (task) => {
             showToast(`选中任务: ${task.name}`, 'info');
+        },
+        on_date_change: (task, start, end) => {
+            // 支持拖拽编辑
+            handleDragEdit(task.id, start, end);
         }
     });
 }
 
-// 视图模式切换
-function changeViewMode(mode) {
-    currentViewMode = mode;
-    document.querySelectorAll('.control-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    
-    if (currentGantt) {
-        currentGantt.change_view_mode(mode);
-    }
-}
-
-// 快速指令
-function quickCommand(type) {
-    const examples = commandExamples[type];
-    const randomExample = examples[Math.floor(Math.random() * examples.length)];
-    document.getElementById('textInput').value = randomExample;
-    showToast(`已填充${type}指令示例`, 'info');
-}
-
-// 帮助面板
-function showHelp() {
-    document.getElementById('helpPanel').classList.add('show');
-}
-
-function hideHelp() {
-    document.getElementById('helpPanel').classList.remove('show');
-}
-
-// 工具函数
-function updateProjectTitle(name) {
-    document.getElementById('projectTitle').textContent = `📊 ${name}`;
-}
-
-function clearAll() {
-    projectData = { name: '我的项目', tasks: [] };
-    document.getElementById('textInput').value = '';
-    document.getElementById('gantt-container').innerHTML = `
-        <div class="placeholder">
-            <div class="placeholder-icon">📈</div>
-            <div class="placeholder-text">等待生成甘特图</div>
-        </div>
-    `;
-    showToast('已清空所有数据', 'success');
-}
-
-function exportImage() {
-    showToast('导出功能开发中...', 'info');
-}
-
-function showToast(message, type = 'success') {
-    const toast = document.getElementById('messageToast');
-    toast.textContent = message;
-    toast.className = 'toast';
-    toast.classList.add(type);
-    toast.classList.add('show');
-    
-    setTimeout(() => {
-        toast.classList.remove('show');
-    }, 3000);
-}
-
-// 页面加载初始化
-document.addEventListener('DOMContentLoaded', function() {
-    init();
-    console.log('智能甘特图助手已初始化');
-    
-    // 添加示例项目
-    setTimeout(() => {
-        if (projectData.tasks.length === 0) {
-            loadSampleProject();
-        }
-    }, 1000);
-});
-
-// 加载示例项目
-function loadSampleProject() {
-    const startDate = new Date();
-    projectData = {
-        name: '示例项目',
-        tasks: [
-            {
-                name: "需求分析与规划",
-                start: new Date(startDate),
-                duration: 3
-            },
-            {
-                name: "UI/UX 设计",
-                start: new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000),
-                duration: 5
-            },
-            {
-                name: "前端开发",
-                start: new Date(startDate.getTime() + 8 * 24 * 60 * 60 * 1000),
-                duration: 7
-            },
-            {
-                name: "后端开发",
-                start: new Date(startDate.getTime() + 15 * 24 * 60 * 60 * 1000),
-                duration: 8
-            },
-            {
-                name: "测试与上线",
-                start: new Date(startDate.getTime() + 23 * 24 * 60 * 60 * 1000),
-                duration: 4
-            }
-        ]
-    };
-    
-    updateProjectTitle(projectData.name);
-    generateGanttChart(projectData);
-}
-
-// 增强的指令处理 - 支持更自然的语言
-function enhanceCommandProcessing(text) {
-    const lowerText = text.toLowerCase();
-    
-    // 支持更自然的表达方式
-    const enhancedPatterns = {
-        // 创建项目
-        create: [
-            /我想?(创建|新建|开始)(一个)?(.+?)(项目|计划)/,
-            /咱们来?做个?(.+?)(项目|计划)/,
-            /需要?启动(.+?)项目/
-        ],
+// 处理拖拽编辑
+function handleDragEdit(taskId, start, end) {
+    const taskIndex = parseInt(taskId.replace('Task-', ''));
+    if (projectData.tasks[taskIndex]) {
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        const duration = Math.ceil((endDate - startDate) / (24 * 60 * 60 * 1000));
         
-        // 添加任务
-        add: [
-            /还要?加(一个)?(.+?)(任务|环节)/,
-            /再添?加(.+?)进去/,
-            /补充(一个)?(.+?)阶段/
-        ],
+        projectData.tasks[taskIndex].start = startDate;
+        projectData.tasks[taskIndex].duration = duration;
         
-        // 编辑任务
-        edit: [
-            /(.+?)的时间?要?(延长|增加|加)(.+?)(天|周)/,
-            /把(.+?)改?为(.+?)(天|周)/,
-            /(.+?)提前(.+?)开始/,
-            /(.+?)推后(.+?)开始/
-        ],
+        // 重新计算时间线
+        recalculateTaskTimeline();
         
-        // 删除任务
-        delete: [
-            /不要(.+?)了/,
-            /去掉(.+?)环节/,
-            /(.+?)可以?删掉/,
-            /取消(.+?)任务/
-        ]
-    };
-    
-    // 尝试匹配增强模式
-    for (const [type, patterns] of Object.entries(enhancedPatterns)) {
-        for (const pattern of patterns) {
-            const match = text.match(pattern);
-            if (match) {
-                console.log(`匹配到增强模式: ${type}`, match);
-                return processEnhancedCommand(type, match, text);
-            }
-        }
-    }
-    
-    return null;
-}
-
-// 处理增强指令
-function processEnhancedCommand(type, match, originalText) {
-    switch (type) {
-        case 'create':
-            return processEnhancedCreate(match, originalText);
-        case 'add':
-            return processEnhancedAdd(match, originalText);
-        case 'edit':
-            return processEnhancedEdit(match, originalText);
-        case 'delete':
-            return processEnhancedDelete(match, originalText);
-        default:
-            return null;
+        // 刷新甘特图
+        generateGanttChart(projectData);
+        showToast('任务时间已更新', 'success');
     }
 }
 
-// 增强的创建项目处理
-function processEnhancedCreate(match, text) {
-    let projectName = match[3] || match[1] || '新项目';
-    const duration = extractDuration(text) || 21;
+// 导出为图片
+function exportAsImage() {
+    const ganttContainer = document.getElementById('gantt-container');
     
-    // 智能项目名称优化
-    if (projectName.includes('网站') || projectName.includes('Web')) {
-        projectName = '网站开发项目';
-    } else if (projectName.includes('APP') || projectName.includes('应用')) {
-        projectName = '移动应用开发';
-    } else if (projectName.includes('营销') || projectName.includes('推广')) {
-        projectName = '营销推广活动';
-    }
-    
-    return parseCreateCommand(`创建${projectName}项目，${duration}天时间`);
-}
-
-// 增强的添加任务处理
-function processEnhancedAdd(match, text) {
-    const taskName = match[2] || match[1] || '新任务';
-    const duration = extractDuration(text) || 5;
-    
-    // 智能任务名称优化
-    let enhancedTaskName = taskName;
-    if (taskName.includes('测试')) enhancedTaskName = '测试验收';
-    if (taskName.includes('设计')) enhancedTaskName = 'UI/UX设计';
-    if (taskName.includes('开发')) enhancedTaskName = '程序开发';
-    if (taskName.includes('评审')) enhancedTaskName = '技术评审';
-    
-    return parseAddCommand(`添加${enhancedTaskName}任务，需要${duration}天`);
-}
-
-// 增强的编辑任务处理
-function processEnhancedEdit(match, text) {
-    const taskKeyword = match[1] || extractKeyword(text);
-    const operation = match[2] || '';
-    const value = match[3] || '';
-    
-    let command = '';
-    if (operation.includes('延长') || operation.includes('增加')) {
-        command = `把${taskKeyword}时间延长${value}天`;
-    } else if (operation.includes('提前')) {
-        command = `将${taskKeyword}提前开始`;
-    } else if (operation.includes('推后')) {
-        command = `将${taskKeyword}推后开始`;
-    } else {
-        command = `调整${taskKeyword}任务`;
-    }
-    
-    return parseEditCommand(command);
-}
-
-// 增强的删除任务处理
-function processEnhancedDelete(match, text) {
-    const taskKeyword = match[1] || extractKeyword(text);
-    return parseDeleteCommand(`删除${taskKeyword}任务`);
-}
-
-// 智能任务时间分配
-function smartTimeAllocation(totalDuration, taskCount) {
-    const ratios = [0.2, 0.3, 0.35, 0.15]; // 需求、设计、开发、测试的典型时间比例
-    const durations = [];
-    
-    for (let i = 0; i < taskCount; i++) {
-        const ratio = i < ratios.length ? ratios[i] : 1 / taskCount;
-        durations.push(Math.max(1, Math.floor(totalDuration * ratio)));
-    }
-    
-    // 调整确保总时长正确
-    const total = durations.reduce((sum, dur) => sum + dur, 0);
-    const difference = totalDuration - total;
-    if (difference !== 0) {
-        durations[durations.length - 1] += difference;
-    }
-    
-    return durations;
-}
-
-// 冲突检测和解决
-function detectAndResolveConflicts(tasks) {
-    const conflicts = [];
-    
-    for (let i = 1; i < tasks.length; i++) {
-        const prevTask = tasks[i - 1];
-        const currentTask = tasks[i];
-        
-        const prevEnd = new Date(prevTask.start.getTime() + prevTask.duration * 24 * 60 * 60 * 1000);
-        const currentStart = currentTask.start;
-        
-        if (currentStart < prevEnd) {
-            conflicts.push({
-                task1: prevTask.name,
-                task2: currentTask.name,
-                overlap: (prevEnd - currentStart) / (24 * 60 * 60 * 1000)
-            });
-            
-            // 自动解决：将当前任务后移
-            currentTask.start = new Date(prevEnd);
-        }
-    }
-    
-    if (conflicts.length > 0) {
-        console.log('检测到时间冲突并自动解决:', conflicts);
-        showToast(`自动调整了 ${conflicts.length} 处时间冲突`, 'warning');
-    }
-    
-    return tasks;
-}
-
-// 项目时间线优化
-function optimizeTimeline(tasks) {
-    // 确保任务按时间顺序排列
-    tasks.sort((a, b) => a.start - b.start);
-    
-    // 添加合理的缓冲时间
-    for (let i = 1; i < tasks.length; i++) {
-        const prevEnd = new Date(tasks[i - 1].start.getTime() + tasks[i - 1].duration * 24 * 60 * 60 * 1000);
-        const currentStart = tasks[i].start;
-        
-        // 如果间隔太小，增加一天缓冲
-        const gap = (currentStart - prevEnd) / (24 * 60 * 60 * 1000);
-        if (gap < 1) {
-            tasks[i].start = new Date(prevEnd.getTime() + 24 * 60 * 60 * 1000);
-        }
-    }
-    
-    return tasks;
+    html2canvas(ganttContainer, {
+        scale: 2, // 提高分辨率
+        useCORS: true,
+        logging: false
+    }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `甘特图_${projectData.name}_${new Date().toISOString().split('T')[0]}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showToast('图片导出成功！', 'success');
+    }).catch(error => {
+        console.error('导出图片失败:', error);
+        showToast('图片导出失败', 'error');
+    });
 }
 
 // 导出项目数据
@@ -701,7 +640,7 @@ function exportProjectData() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${projectData.name}_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `项目数据_${projectData.name}_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
     
@@ -709,7 +648,12 @@ function exportProjectData() {
 }
 
 // 导入项目数据
-function importProjectData(event) {
+function importProjectData() {
+    document.getElementById('fileInput').click();
+}
+
+// 处理文件导入
+document.getElementById('fileInput').addEventListener('change', function(event) {
     const file = event.target.files[0];
     if (!file) return;
     
@@ -730,26 +674,115 @@ function importProjectData(event) {
         }
     };
     reader.readAsText(file);
+    
+    // 清空文件输入
+    event.target.value = '';
+});
+
+// 其他现有函数保持不变...
+function changeViewMode(mode) {
+    currentViewMode = mode;
+    document.querySelectorAll('.control-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    if (currentGantt) {
+        currentGantt.change_view_mode(mode);
+    }
 }
 
-// 键盘快捷键支持
-document.addEventListener('keydown', function(e) {
-    // Ctrl+Enter 执行指令
-    if (e.ctrlKey && e.key === 'Enter') {
-        e.preventDefault();
-        processCommand();
-    }
+function quickCommand(type) {
+    const examples = commandExamples[type];
+    const randomExample = examples[Math.floor(Math.random() * examples.length)];
+    document.getElementById('textInput').value = randomExample;
+    showToast(`已填充${type}指令示例`, 'info');
+}
+
+function showHelp() {
+    document.getElementById('helpPanel').classList.add('show');
+}
+
+function hideHelp() {
+    document.getElementById('helpPanel').classList.remove('show');
+}
+
+function updateProjectTitle(name) {
+    document.getElementById('projectTitle').textContent = `📊 ${name}`;
+}
+
+function clearAll() {
+    projectData = { name: '我的项目', tasks: [] };
+    document.getElementById('textInput').value = '';
+    document.getElementById('gantt-container').innerHTML = `
+        <div class="placeholder">
+            <div class="placeholder-icon">📈</div>
+            <div class="placeholder-text">等待生成甘特图</div>
+        </div>
+    `;
+    showToast('已清空所有数据', 'success');
+}
+
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('messageToast');
+    toast.textContent = message;
+    toast.className = 'toast';
+    toast.classList.add(type);
+    toast.classList.add('show');
     
-    // Escape 关闭帮助面板
-    if (e.key === 'Escape') {
-        hideHelp();
-    }
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
+
+// 加载示例项目
+function loadSampleProject() {
+    if (projectData.tasks.length > 0) return;
     
-    // Ctrl+S 导出项目
-    if (e.ctrlKey && e.key === 's') {
-        e.preventDefault();
-        exportProjectData();
-    }
+    const startDate = new Date();
+    projectData = {
+        name: '示例项目',
+        tasks: [
+            {
+                name: "需求分析与规划",
+                start: new Date(startDate),
+                duration: 3
+            },
+            {
+                name: "UI/UX 设计",
+                start: new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000),
+                duration: 5
+            },
+            {
+                name: "前端开发",
+                start: new Date(startDate.getTime() + 8 * 24 * 60 * 60 * 1000),
+                duration: 7
+            },
+            {
+                name: "测试与上线",
+                start: new Date(startDate.getTime() + 15 * 24 * 60 * 60 * 1000),
+                duration: 4
+            }
+        ]
+    };
+    
+    updateProjectTitle(projectData.name);
+    generateGanttChart(projectData);
+}
+
+// 事件监听器设置
+function setupEventListeners() {
+    // 文本输入框回车键支持
+    document.getElementById('textInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && e.ctrlKey) {
+            e.preventDefault();
+            processCommand();
+        }
+    });
+}
+
+// 页面加载初始化
+document.addEventListener('DOMContentLoaded', function() {
+    init();
+    console.log('智能甘特图助手已初始化');
 });
 
 // 响应式调整
@@ -760,108 +793,3 @@ window.addEventListener('resize', function() {
         }, 100);
     }
 });
-
-// 触摸设备优化
-if ('ontouchstart' in window) {
-    document.body.classList.add('touch-device');
-    
-    // 增加触摸目标的尺寸
-    const style = document.createElement('style');
-    style.textContent = `
-        .touch-device .control-btn,
-        .touch-device .method-btn,
-        .touch-device .quick-btn {
-            min-height: 44px;
-            min-width: 44px;
-        }
-        
-        .touch-device .voice-btn {
-            padding: 25px 50px;
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-// 性能优化：防抖处理
-const debounce = (func, wait) => {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-};
-
-// 防抖的甘特图刷新
-const refreshGantt = debounce(() => {
-    if (currentGantt) {
-        currentGantt.refresh();
-    }
-}, 250);
-
-// 最终的主处理函数（整合增强功能）
-function processCommand() {
-    const commandText = document.getElementById('textInput').value.trim();
-    
-    if (!commandText) {
-        showToast('请输入指令内容', 'warning');
-        return;
-    }
-    
-    try {
-        // 首先尝试增强解析
-        let result = enhanceCommandProcessing(commandText);
-        
-        // 如果增强解析失败，使用基础解析
-        if (!result) {
-            result = parseCommand(commandText);
-        }
-        
-        // 优化时间线
-        result.tasks = optimizeTimeline(result.tasks);
-        
-        // 检测并解决冲突
-        result.tasks = detectAndResolveConflicts(result.tasks);
-        
-        projectData = result;
-        updateProjectTitle(projectData.name);
-        generateGanttChart(projectData);
-        showToast('指令执行成功！', 'success');
-        
-    } catch (error) {
-        console.error('指令处理错误:', error);
-        showToast('指令解析失败，请尝试更清晰的表述', 'error');
-    }
-}
-
-// 添加导入功能到UI
-function addImportFeature() {
-    // 检查是否已存在导入按钮
-    if (document.querySelector('.import-btn')) return;
-    
-    const importBtn = document.createElement('button');
-    importBtn.className = 'btn-tertiary import-btn';
-    importBtn.innerHTML = '📁 导入项目';
-    importBtn.onclick = () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        input.onchange = importProjectData;
-        input.click();
-    };
-    
-    // 添加到操作按钮区域
-    const actionButtons = document.querySelector('.action-buttons');
-    const clearBtn = actionButtons.querySelector('.btn-tertiary');
-    actionButtons.insertBefore(importBtn, clearBtn);
-}
-
-// 初始化时添加导入功能
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(addImportFeature, 1000);
-});
-
-console.log('智能甘特图助手代码加载完成');
