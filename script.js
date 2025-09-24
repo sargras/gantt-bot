@@ -8,6 +8,12 @@ let projectData = {
     tasks: []
 };
 
+// 语音引导状态
+let voiceGuideState = {
+    currentStep: 0,
+    isGuideOpen: false
+};
+
 // 设备检测
 function detectPlatform() {
     const ua = navigator.userAgent;
@@ -28,17 +34,7 @@ function init() {
     
     showDeviceGuide(platform);
     setupEventListeners();
-    
-    // 只有桌面端初始化语音识别
-    if (platform.type === 'desktop') {
-        console.log('桌面设备，初始化语音识别...');
-        initSpeechRecognition();
-    } else {
-        console.log('移动设备，使用原生语音输入...');
-    }
-    
-    // 加载示例项目
-    setTimeout(loadSampleProject, 500);
+    loadSampleProject();
 }
 
 // 显示设备指南
@@ -63,9 +59,6 @@ function showDeviceGuide(platform) {
                         <div>开始说话</div>
                     </div>
                 </div>
-                <div style="font-size: 0.9em; color: #666;">
-                    说话后文字会自动填入，点击"执行指令"即可生成甘特图
-                </div>
             </div>
         `;
     } else {
@@ -74,200 +67,281 @@ function showDeviceGuide(platform) {
                 <span class="guide-icon">🎤</span>
                 <div>
                     <strong>桌面端语音输入</strong>
-                    <div>点击语音按钮，允许麦克风权限后直接说话</div>
+                    <div>点击语音按钮开始语音输入流程</div>
                 </div>
             </div>
         `;
     }
 }
 
-// 语音输入处理（统一入口）
+// 语音输入处理 - 打开引导提示框
 function handleVoiceInput() {
-    console.log('语音按钮被点击');
+    console.log('打开语音引导提示框');
+    openVoiceGuide();
+}
+
+// 打开语音引导提示框
+function openVoiceGuide() {
+    const modal = document.getElementById('voiceGuideModal');
+    modal.classList.add('show');
+    voiceGuideState.isGuideOpen = true;
+    
+    // 重置步骤状态
+    resetVoiceGuideSteps();
+    
+    // 根据设备类型显示不同的内容
     const platform = detectPlatform();
-    
     if (platform.type === 'mobile') {
-        // 移动端：引导使用自带语音输入
-        console.log('移动设备，引导使用原生输入法');
-        showToast('请点击上方输入框，然后使用键盘的麦克风图标进行语音输入', 'info');
-        document.getElementById('textInput').focus();
+        showFallbackOption();
     } else {
-        // 桌面端：使用Web Speech API
-        console.log('桌面设备，启动语音识别');
-        toggleVoiceRecognition();
+        hideFallbackOption();
     }
 }
 
-// 语音识别初始化（仅桌面端）
-function initSpeechRecognition() {
-    console.log('初始化语音识别...');
+// 关闭语音引导提示框
+function closeVoiceGuide() {
+    const modal = document.getElementById('voiceGuideModal');
+    modal.classList.remove('show');
+    voiceGuideState.isGuideOpen = false;
     
-    // 检查浏览器支持
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        console.error('浏览器不支持语音识别');
-        showToast('您的浏览器不支持语音识别功能', 'error');
-        updateVoiceUI(false, "❌ 不支持语音");
-        return false;
+    // 停止语音识别
+    if (speechRecognizer && isListening) {
+        speechRecognizer.stop();
     }
+}
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+// 重置引导步骤
+function resetVoiceGuideSteps() {
+    voiceGuideState.currentStep = 0;
     
-    try {
-        speechRecognizer = new SpeechRecognition();
-        console.log('语音识别器创建成功');
+    // 重置所有步骤状态
+    for (let i = 1; i <= 4; i++) {
+        const step = document.getElementById(`step${i}`);
+        const status = document.getElementById(`step${i}Status`);
         
-        speechRecognizer.continuous = false;
-        speechRecognizer.interimResults = false;
-        speechRecognizer.lang = 'zh-CN';
-        speechRecognizer.maxAlternatives = 1;
-
-        speechRecognizer.onstart = function() {
-            console.log('语音识别开始');
-            isListening = true;
-            updateVoiceUI(true, "🎤 正在聆听...");
-            document.getElementById('recordingDot').classList.add('recording');
-            showToast('正在聆听，请说话...', 'info');
-        };
-
-        speechRecognizer.onresult = function(event) {
-            console.log('语音识别结果:', event);
-            const transcript = event.results[0][0].transcript;
-            console.log('识别文本:', transcript);
-            
-            document.getElementById('textInput').value = transcript;
-            updateVoiceUI(false, "✅ 识别成功");
-            document.getElementById('recordingDot').classList.remove('recording');
-            
-            showToast('语音识别完成！', 'success');
-            setTimeout(processCommand, 500);
-        };
-
-        speechRecognizer.onerror = function(event) {
-            console.error('语音识别错误:', event.error);
-            isListening = false;
-            updateVoiceUI(false, "❌ 识别失败");
-            document.getElementById('recordingDot').classList.remove('recording');
-            
-            let errorMsg = "语音识别错误";
-            switch(event.error) {
-                case 'no-speech': errorMsg = "没有检测到语音"; break;
-                case 'audio-capture': errorMsg = "无法访问麦克风"; break;
-                case 'not-allowed': errorMsg = "麦克风权限被拒绝"; break;
-                case 'network': errorMsg = "网络错误"; break;
-                default: errorMsg = `识别错误: ${event.error}`;
-            }
-            
-            showToast(errorMsg, 'error');
-        };
-
-        speechRecognizer.onend = function() {
-            console.log('语音识别结束');
-            isListening = false;
-            document.getElementById('recordingDot').classList.remove('recording');
-            if (!document.getElementById('voiceStatus').textContent.includes('成功')) {
-                updateVoiceUI(false, "准备就绪");
-            }
-        };
-
-        return true;
-    } catch (error) {
-        console.error('语音识别初始化失败:', error);
-        showToast('语音识别初始化失败', 'error');
-        return false;
+        step.className = 'step-item';
+        if (i === 1) {
+            status.textContent = '等待检查...';
+        } else {
+            status.textContent = i === 4 ? '请说话...' : '等待启动...';
+        }
     }
+    
+    // 重置按钮文本
+    document.getElementById('startVoiceBtn').textContent = '开始语音输入';
 }
 
-// 切换语音识别（仅桌面端）
-function toggleVoiceRecognition() {
-    console.log('切换语音识别状态, 当前状态:', isListening);
+// 显示备用方案
+function showFallbackOption() {
+    document.getElementById('voiceFallback').style.display = 'block';
+}
+
+// 隐藏备用方案
+function hideFallbackOption() {
+    document.getElementById('voiceFallback').style.display = 'none';
+}
+
+// 使用备用方案（移动端）
+function useFallbackInput() {
+    closeVoiceGuide();
+    document.getElementById('textInput').focus();
+    showToast('请点击输入框后使用键盘麦克风图标', 'info');
+}
+
+// 开始语音处理流程
+function startVoiceProcess() {
+    console.log('开始语音处理流程');
+    voiceGuideState.currentStep = 1;
+    updateStep(1, 'active', '检查浏览器支持...');
     
-    if (!speechRecognizer) {
-        console.log('语音识别器未初始化，尝试初始化...');
-        if (!initSpeechRecognition()) {
-            showToast('语音识别初始化失败', 'error');
+    // 步骤1：检查浏览器支持
+    checkBrowserSupport();
+}
+
+// 步骤1：检查浏览器支持
+function checkBrowserSupport() {
+    setTimeout(() => {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            updateStep(1, 'failed', '❌ 浏览器不支持语音识别');
+            updateStep(2, 'failed', '无法继续');
+            updateStep(3, 'failed', '无法继续');
+            showFallbackOption();
             return;
         }
-    }
+        
+        updateStep(1, 'completed', '✅ 浏览器支持语音识别');
+        voiceGuideState.currentStep = 2;
+        updateStep(2, 'active', '请求麦克风权限...');
+        
+        // 步骤2：请求麦克风权限
+        requestMicrophonePermission();
+    }, 1000);
+}
 
-    if (isListening) {
-        console.log('停止语音识别');
-        speechRecognizer.stop();
-    } else {
-        console.log('开始语音识别');
+// 步骤2：请求麦克风权限
+function requestMicrophonePermission() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        updateStep(2, 'failed', '❌ 无法访问麦克风');
+        showFallbackOption();
+        return;
+    }
+    
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(function(stream) {
+            // 停止流以释放资源
+            stream.getTracks().forEach(track => track.stop());
+            
+            updateStep(2, 'completed', '✅ 麦克风权限已获得');
+            voiceGuideState.currentStep = 3;
+            updateStep(3, 'active', '初始化语音识别...');
+            
+            // 步骤3：初始化语音识别
+            initializeSpeechRecognition();
+        })
+        .catch(function(error) {
+            console.error('麦克风权限被拒绝:', error);
+            updateStep(2, 'failed', '❌ 麦克风权限被拒绝');
+            showFallbackOption();
+        });
+}
+
+// 步骤3：初始化语音识别
+function initializeSpeechRecognition() {
+    setTimeout(() => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
         try {
-            // 检查麦克风权限
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(function(stream) {
-                    console.log('麦克风权限已获得');
-                    stream.getTracks().forEach(track => track.stop()); // 停止流以释放资源
-                    speechRecognizer.start();
-                })
-                .catch(function(error) {
-                    console.error('麦克风权限被拒绝:', error);
-                    showToast('请允许麦克风权限以使用语音输入', 'error');
-                    updateVoiceUI(false, "❌ 需要权限");
-                });
+            speechRecognizer = new SpeechRecognition();
+            speechRecognizer.continuous = false;
+            speechRecognizer.interimResults = false;
+            speechRecognizer.lang = 'zh-CN';
+            speechRecognizer.maxAlternatives = 1;
+
+            // 设置事件处理器
+            setupSpeechRecognitionEvents();
+            
+            updateStep(3, 'completed', '✅ 语音识别准备就绪');
+            voiceGuideState.currentStep = 4;
+            updateStep(4, 'active', '正在聆听...');
+            
+            // 步骤4：开始语音识别
+            startSpeechRecognition();
         } catch (error) {
-            console.error('启动语音识别失败:', error);
-            showToast('启动语音识别失败: ' + error.message, 'error');
+            console.error('语音识别初始化失败:', error);
+            updateStep(3, 'failed', '❌ 初始化失败');
+            showFallbackOption();
         }
+    }, 1000);
+}
+
+// 设置语音识别事件
+function setupSpeechRecognitionEvents() {
+    speechRecognizer.onstart = function() {
+        console.log('语音识别开始');
+        isListening = true;
+        updateStep(4, 'active', '🎤 正在聆听，请说话...');
+        showRecordingAnimation();
+    };
+
+    speechRecognizer.onresult = function(event) {
+        console.log('语音识别结果:', event);
+        const transcript = event.results[0][0].transcript;
+        console.log('识别文本:', transcript);
+        
+        updateStep(4, 'completed', '✅ 语音识别成功');
+        hideRecordingAnimation();
+        
+        // 将识别结果填入输入框
+        document.getElementById('textInput').value = transcript;
+        
+        // 2秒后自动处理指令并关闭引导
+        setTimeout(() => {
+            closeVoiceGuide();
+            showToast('语音识别完成！正在生成甘特图...', 'success');
+            setTimeout(processCommand, 500);
+        }, 2000);
+    };
+
+    speechRecognizer.onerror = function(event) {
+        console.error('语音识别错误:', event.error);
+        isListening = false;
+        hideRecordingAnimation();
+        
+        let errorMsg = "语音识别错误";
+        switch(event.error) {
+            case 'no-speech': errorMsg = "没有检测到语音"; break;
+            case 'audio-capture': errorMsg = "无法访问麦克风"; break;
+            case 'not-allowed': errorMsg = "麦克风权限被拒绝"; break;
+            case 'network': errorMsg = "网络错误"; break;
+            default: errorMsg = `识别错误: ${event.error}`;
+        }
+        
+        updateStep(4, 'failed', `❌ ${errorMsg}`);
+        showFallbackOption();
+    };
+
+    speechRecognizer.onend = function() {
+        console.log('语音识别结束');
+        isListening = false;
+        hideRecordingAnimation();
+    };
+}
+
+// 开始语音识别
+function startSpeechRecognition() {
+    try {
+        speechRecognizer.start();
+    } catch (error) {
+        console.error('启动语音识别失败:', error);
+        updateStep(4, 'failed', '❌ 启动失败');
+        showFallbackOption();
     }
 }
 
-// 更新语音界面
-function updateVoiceUI(listening, status) {
-    console.log('更新语音界面:', { listening, status });
-    const button = document.getElementById('voiceButton');
-    const statusEl = document.getElementById('voiceStatus');
-    const voiceText = document.getElementById('voiceText');
+// 更新步骤状态
+function updateStep(stepNumber, status, message) {
+    const step = document.getElementById(`step${stepNumber}`);
+    const statusElement = document.getElementById(`step${stepNumber}Status`);
     
-    if (listening) {
-        button.classList.add('listening');
-        voiceText.textContent = '正在聆听...';
-        statusEl.textContent = status;
-    } else {
-        button.classList.remove('listening');
-        voiceText.textContent = '点击开始语音输入';
-        statusEl.textContent = status;
-    }
-}
-
-// 修复HTML中的onclick绑定问题
-function fixEventBindings() {
-    // 确保语音按钮正确绑定
-    const voiceButton = document.getElementById('voiceButton');
-    if (voiceButton) {
-        voiceButton.onclick = handleVoiceInput;
+    // 移除所有状态类
+    step.classList.remove('active', 'completed', 'failed');
+    
+    // 添加新状态类
+    if (status) {
+        step.classList.add(status);
     }
     
-    // 确保方法切换按钮正确绑定
-    const methodButtons = document.querySelectorAll('.method-btn');
-    methodButtons.forEach(btn => {
-        const method = btn.textContent.includes('语音') ? 'voice' : 'text';
-        btn.onclick = function() { switchInputMethod(method); };
-    });
+    // 更新状态消息
+    if (message) {
+        statusElement.textContent = message;
+    }
+    
+    console.log(`步骤 ${stepNumber}: ${status} - ${message}`);
 }
 
-// 输入方法切换
-function switchInputMethod(method) {
-    console.log('切换输入方法:', method);
-    document.querySelectorAll('.method-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.input-area').forEach(area => area.classList.remove('active'));
-    
-    const methodBtn = document.querySelector(`.method-btn[onclick*="${method}"]`);
-    if (methodBtn) methodBtn.classList.add('active');
-    
-    const area = document.getElementById(method + 'Area');
-    if (area) area.classList.add('active');
+// 显示录音动画
+function showRecordingAnimation() {
+    const step4Status = document.getElementById('step4Status');
+    step4Status.innerHTML = `
+        <div class="recording-animation">
+            <div>正在录音</div>
+            <div class="recording-dots">
+                <div class="recording-dot"></div>
+                <div class="recording-dot"></div>
+                <div class="recording-dot"></div>
+            </div>
+        </div>
+    `;
+}
+
+// 隐藏录音动画
+function hideRecordingAnimation() {
+    const step4Status = document.getElementById('step4Status');
+    // 动画会在状态更新时被替换
 }
 
 // 事件监听器设置
 function setupEventListeners() {
-    console.log('设置事件监听器...');
-    
-    // 修复事件绑定
-    fixEventBindings();
-    
     // 文本输入框回车键支持
     document.getElementById('textInput').addEventListener('keypress', function(e) {
         if (e.key === 'Enter' && e.ctrlKey) {
@@ -276,17 +350,17 @@ function setupEventListeners() {
         }
     });
     
-    // 页面点击事件调试
-    document.addEventListener('click', function(e) {
-        if (e.target.id === 'voiceButton' || e.target.closest('#voiceButton')) {
-            console.log('语音按钮被点击（全局监听）');
+    // 点击模态框外部关闭
+    document.getElementById('voiceGuideModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeVoiceGuide();
         }
     });
     
-    // 页面可见性变化时重置语音状态
-    document.addEventListener('visibilitychange', function() {
-        if (document.hidden && isListening) {
-            speechRecognizer.stop();
+    // ESC键关闭模态框
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && voiceGuideState.isGuideOpen) {
+            closeVoiceGuide();
         }
     });
 }
@@ -311,13 +385,6 @@ class TimeParser {
             const day = date.getDay();
             const daysUntilMonday = day === 0 ? 1 : 8 - day;
             date.setDate(date.getDate() + daysUntilMonday);
-            return date;
-        }
-        
-        if (lowerExpr.includes('下个月')) {
-            const date = new Date(this.referenceDate);
-            date.setMonth(date.getMonth() + 1);
-            date.setDate(1);
             return date;
         }
         
@@ -350,7 +417,7 @@ class TimeParser {
     }
 }
 
-// 智能指令解析
+// 智能指令解析（保持原有功能）
 function parseCommand(text) {
     console.log('解析指令:', text);
     const lowerText = text.toLowerCase();
@@ -692,15 +759,6 @@ function loadSampleProject() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('页面加载完成，开始初始化...');
     init();
-});
-
-// 响应式调整
-window.addEventListener('resize', function() {
-    if (currentGantt) {
-        setTimeout(() => {
-            currentGantt.refresh();
-        }, 100);
-    }
 });
 
 console.log('智能甘特图助手代码加载完成');
