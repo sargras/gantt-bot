@@ -5,41 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>语音智能甘特图</title>
     <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --accent-color: #e74c3c;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --light-color: #ecf0f1;
+            --dark-color: #34495e;
+            --text-color: #333;
+            --border-radius: 8px;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+        
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
         }
         
         body {
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             min-height: 100vh;
             padding: 20px;
-            color: #333;
+            color: var(--text-color);
+            line-height: 1.6;
         }
         
         .container {
             max-width: 1400px;
             margin: 0 auto;
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
             overflow: hidden;
         }
         
         header {
-            background: linear-gradient(120deg, #3498db, #2c3e50);
+            background: linear-gradient(120deg, var(--primary-color), var(--secondary-color));
             color: white;
             padding: 20px 30px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
         }
         
         h1 {
             font-size: 28px;
             font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .header-info {
+            font-size: 14px;
+            opacity: 0.9;
         }
         
         .controls {
@@ -54,15 +76,16 @@
         button {
             padding: 10px 18px;
             border: none;
-            border-radius: 6px;
-            background: #3498db;
+            border-radius: var(--border-radius);
+            background: var(--primary-color);
             color: white;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: var(--transition);
             display: flex;
             align-items: center;
             gap: 8px;
+            font-size: 14px;
         }
         
         button:hover {
@@ -71,15 +94,15 @@
         }
         
         button.active {
-            background: #2c3e50;
+            background: var(--secondary-color);
         }
         
         .voice-control {
-            background: #e74c3c;
+            background: var(--accent-color);
         }
         
         .voice-control.listening {
-            background: #2ecc71;
+            background: var(--success-color);
             animation: pulse 1.5s infinite;
         }
         
@@ -90,7 +113,7 @@
         }
         
         .export-btn {
-            background: #27ae60;
+            background: var(--success-color);
         }
         
         .export-btn:hover {
@@ -109,7 +132,7 @@
         
         .gantt-header {
             display: flex;
-            border-bottom: 2px solid #3498db;
+            border-bottom: 2px solid var(--primary-color);
             padding-bottom: 10px;
             margin-bottom: 10px;
             min-width: 800px;
@@ -123,12 +146,15 @@
         .gantt-header .timeline {
             flex: 1;
             display: flex;
+            position: relative;
         }
         
         .gantt-header .time-unit {
             text-align: center;
             font-weight: 600;
             padding: 5px;
+            flex: 1;
+            border-right: 1px solid #eaeaea;
         }
         
         .gantt-body {
@@ -138,7 +164,7 @@
         .gantt-task {
             display: flex;
             margin-bottom: 8px;
-            height: 40px;
+            height: 50px;
             align-items: center;
         }
         
@@ -150,7 +176,7 @@
         }
         
         .task-id {
-            background: #3498db;
+            background: var(--primary-color);
             color: white;
             width: 30px;
             height: 30px;
@@ -160,6 +186,7 @@
             justify-content: center;
             margin-right: 10px;
             font-weight: 600;
+            flex-shrink: 0;
         }
         
         .task-name {
@@ -167,10 +194,13 @@
             padding: 8px;
             border: 1px solid transparent;
             border-radius: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         
         .task-name.editing {
-            border: 1px solid #3498db;
+            border: 1px solid var(--primary-color);
             background: #f0f8ff;
         }
         
@@ -178,16 +208,23 @@
             flex: 1;
             height: 100%;
             position: relative;
-            background: #f0f0f0;
+            background: #f9f9f9;
             border-radius: 4px;
             overflow: hidden;
         }
         
-        .task-bar {
+        .task-bar-container {
             position: absolute;
-            height: 70%;
-            top: 15%;
-            background: linear-gradient(90deg, #3498db, #2c3e50);
+            height: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .task-bar {
+            height: 40%;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
             border-radius: 4px;
             cursor: move;
             display: flex;
@@ -196,12 +233,48 @@
             color: white;
             font-size: 12px;
             font-weight: 500;
-            transition: all 0.3s;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
         }
         
         .task-bar:hover {
             filter: brightness(1.1);
             box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+        }
+        
+        .task-bar.milestone {
+            width: 10px !important;
+            border-radius: 50%;
+            background: var(--accent-color);
+            margin-left: -5px;
+        }
+        
+        .task-bar.milestone::after {
+            content: '里程碑';
+            position: absolute;
+            left: 15px;
+            white-space: nowrap;
+            color: var(--dark-color);
+        }
+        
+        .task-bar.segmented {
+            display: flex;
+            gap: 2px;
+        }
+        
+        .task-segment {
+            flex: 1;
+            background: inherit;
+            border-radius: 2px;
+        }
+        
+        .task-segment.active {
+            opacity: 1;
+        }
+        
+        .task-segment.inactive {
+            opacity: 0.5;
         }
         
         .voice-command-panel {
@@ -215,6 +288,20 @@
             display: block;
         }
         
+        .command-input-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .command-input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            font-size: 16px;
+        }
+        
         .command-examples {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -225,12 +312,12 @@
         .command-example {
             background: white;
             padding: 12px;
-            border-radius: 6px;
+            border-radius: var(--border-radius);
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
         
         .command-example h4 {
-            color: #3498db;
+            color: var(--primary-color);
             margin-bottom: 5px;
         }
         
@@ -238,7 +325,7 @@
             margin-top: 10px;
             padding: 10px;
             background: #e8f4fc;
-            border-radius: 6px;
+            border-radius: var(--border-radius);
             display: none;
         }
         
@@ -258,7 +345,7 @@
         .modal-content {
             background: white;
             padding: 30px;
-            border-radius: 10px;
+            border-radius: var(--border-radius);
             width: 90%;
             max-width: 500px;
             box-shadow: 0 5px 20px rgba(0,0,0,0.2);
@@ -266,7 +353,7 @@
         
         .modal h2 {
             margin-bottom: 20px;
-            color: #2c3e50;
+            color: var(--secondary-color);
         }
         
         .form-group {
@@ -279,7 +366,7 @@
             font-weight: 500;
         }
         
-        input, textarea {
+        input, textarea, select {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
@@ -299,7 +386,7 @@
         }
         
         .save-btn {
-            background: #27ae60;
+            background: var(--success-color);
         }
         
         .task-actions {
@@ -315,11 +402,12 @@
             cursor: pointer;
             padding: 5px;
             border-radius: 3px;
+            font-size: 16px;
         }
         
         .task-action:hover {
             background: #ecf0f1;
-            color: #34495e;
+            color: var(--dark-color);
         }
         
         footer {
@@ -346,15 +434,88 @@
                 gap: 15px;
                 text-align: center;
             }
+            
+            .command-input-container {
+                flex-direction: column;
+            }
+            
+            .command-examples {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            .gantt-container {
+                padding: 10px;
+            }
+            
+            .task-info {
+                width: 200px;
+            }
+        }
+        
+        /* 时间轴双层显示 */
+        .timeline-layer {
+            position: absolute;
+            width: 100%;
+            height: 50%;
+        }
+        
+        .timeline-layer.top {
+            top: 0;
+        }
+        
+        .timeline-layer.bottom {
+            bottom: 0;
+        }
+        
+        .time-unit.double {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .time-unit.double .time-part {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid #eaeaea;
+        }
+        
+        .time-unit.double .time-part:last-child {
+            border-bottom: none;
+        }
+        
+        /* 加载动画 */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>语音智能甘特图</h1>
-            <div class="voice-status">
-                <p>点击下方语音按钮开始使用语音控制</p>
+            <div>
+                <h1>语音智能甘特图</h1>
+                <div class="header-info">支持语音/文本指令控制 · 跨平台兼容</div>
+            </div>
+            <div class="header-info">
+                当前时间: <span id="currentTime"></span>
             </div>
         </header>
         
@@ -371,7 +532,7 @@
                 <button id="monthView" class="view-btn">月视图</button>
             </div>
             <button id="voiceControl" class="voice-control">
-                <i>🎤</i> 语音控制
+                <i>🎤</i> <span id="voiceText">语音控制</span>
             </button>
             <button id="exportBtn" class="export-btn">
                 <i>📤</i> 导出
@@ -379,7 +540,12 @@
         </div>
         
         <div class="voice-command-panel" id="voiceCommandPanel">
-            <h3>语音指令示例</h3>
+            <h3>语音/文本指令控制</h3>
+            <div class="command-input-container">
+                <input type="text" class="command-input" id="textCommand" placeholder="输入指令或点击语音按钮说话...">
+                <button id="submitTextCommand">执行</button>
+            </div>
+            
             <div class="command-examples">
                 <div class="command-example">
                     <h4>新增任务</h4>
@@ -441,6 +607,14 @@
                     <label for="taskDuration">持续时间（天）</label>
                     <input type="number" id="taskDuration" min="1" value="1" required>
                 </div>
+                <div class="form-group">
+                    <label for="taskType">任务类型</label>
+                    <select id="taskType">
+                        <option value="normal">普通任务</option>
+                        <option value="milestone">里程碑</option>
+                        <option value="segmented">分段任务</option>
+                    </select>
+                </div>
                 <div class="form-group" id="projectGroup">
                     <label for="taskProject">所属项目</label>
                     <select id="taskProject">
@@ -463,11 +637,22 @@
         ];
         
         let tasks = [
-            { id: 1, name: "需求分析", start: "2023-10-01", duration: 3, project: 1 },
-            { id: 2, name: "UI设计", start: "2023-10-04", duration: 5, project: 1 },
-            { id: 3, name: "前端开发", start: "2023-10-10", duration: 10, project: 1 },
-            { id: 4, name: "市场调研", start: "2023-10-05", duration: 4, project: 2 }
+            { id: 1, name: "需求分析", start: getDateString(0), duration: 3, project: 1, type: "normal" },
+            { id: 2, name: "UI设计", start: getDateString(3), duration: 5, project: 1, type: "normal" },
+            { id: 3, name: "前端开发", start: getDateString(8), duration: 10, project: 1, type: "segmented", segments: 3 },
+            { id: 4, name: "市场调研", start: getDateString(2), duration: 4, project: 2, type: "normal" },
+            { id: 5, name: "项目评审", start: getDateString(12), duration: 1, project: 1, type: "milestone" }
         ];
+        
+        // 工具函数：获取相对日期的字符串
+        function getDateString(daysFromToday) {
+            const date = new Date();
+            date.setDate(date.getDate() + daysFromToday);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
         
         // 当前视图模式
         let currentView = 'day';
@@ -476,8 +661,11 @@
         const ganttBody = document.getElementById('ganttBody');
         const timelineHeader = document.getElementById('timelineHeader');
         const voiceControlBtn = document.getElementById('voiceControl');
+        const voiceText = document.getElementById('voiceText');
         const voiceCommandPanel = document.getElementById('voiceCommandPanel');
         const voiceFeedback = document.getElementById('voiceFeedback');
+        const textCommandInput = document.getElementById('textCommand');
+        const submitTextCommandBtn = document.getElementById('submitTextCommand');
         const taskModal = document.getElementById('taskModal');
         const taskForm = document.getElementById('taskForm');
         const modalTitle = document.getElementById('modalTitle');
@@ -485,14 +673,17 @@
         const addTaskBtn = document.getElementById('addTaskBtn');
         const addProjectBtn = document.getElementById('addProjectBtn');
         const exportBtn = document.getElementById('exportBtn');
+        const currentTimeEl = document.getElementById('currentTime');
         
         // 语音识别
         let recognition;
         let isListening = false;
+        let speechSupport = false;
         
         // 初始化语音识别
         function initSpeechRecognition() {
             if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                speechSupport = true;
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                 recognition = new SpeechRecognition();
                 recognition.continuous = false;
@@ -502,6 +693,7 @@
                 recognition.onstart = function() {
                     isListening = true;
                     voiceControlBtn.classList.add('listening');
+                    voiceText.innerHTML = '<div class="loading"></div> 聆听中...';
                     voiceFeedback.textContent = "正在聆听...";
                     voiceFeedback.style.display = 'block';
                 };
@@ -514,44 +706,58 @@
                 
                 recognition.onerror = function(event) {
                     voiceFeedback.textContent = `识别错误: ${event.error}`;
+                    if (event.error === 'not-allowed') {
+                        voiceFeedback.innerHTML = '麦克风权限被拒绝，请允许使用麦克风或使用文本指令';
+                    }
                     setTimeout(() => {
                         voiceFeedback.style.display = 'none';
-                    }, 3000);
+                    }, 5000);
                 };
                 
                 recognition.onend = function() {
                     isListening = false;
                     voiceControlBtn.classList.remove('listening');
+                    voiceText.textContent = '语音控制';
                     setTimeout(() => {
                         voiceFeedback.style.display = 'none';
-                    }, 3000);
+                    }, 5000);
                 };
             } else {
-                alert("您的浏览器不支持语音识别功能，请使用Chrome或Edge浏览器");
+                speechSupport = false;
+                voiceControlBtn.style.display = 'none';
+                voiceFeedback.textContent = "您的设备不支持语音识别，请使用文本指令";
+                voiceFeedback.style.display = 'block';
+                setTimeout(() => {
+                    voiceFeedback.style.display = 'none';
+                }, 5000);
             }
         }
         
-        // 处理语音指令
+        // 处理语音/文本指令
         function processVoiceCommand(command) {
             command = command.toLowerCase();
             
             // 视图切换
-            if (command.includes("日视图") || command.includes("天视图")) {
+            if (command.includes("日视图") || command.includes("天视图") || command.includes("每日视图")) {
                 switchView('day');
+                showFeedback("已切换到日视图");
                 return;
             }
-            if (command.includes("周视图") || command.includes("星期视图")) {
+            if (command.includes("周视图") || command.includes("星期视图") || command.includes("每周视图")) {
                 switchView('week');
+                showFeedback("已切换到周视图");
                 return;
             }
-            if (command.includes("月视图")) {
+            if (command.includes("月视图") || command.includes("每月视图")) {
                 switchView('month');
+                showFeedback("已切换到月视图");
                 return;
             }
             
             // 新增任务
             if (command.includes("添加任务") || command.includes("创建任务") || command.includes("新增任务")) {
                 openTaskModal();
+                showFeedback("打开新增任务窗口");
                 return;
             }
             
@@ -561,6 +767,8 @@
                 const taskRef = extractTaskReference(command);
                 if (taskRef) {
                     editTask(taskRef);
+                } else {
+                    showFeedback("请指定要编辑的任务编号或名称");
                 }
                 return;
             }
@@ -570,25 +778,50 @@
                 const taskRef = extractTaskReference(command);
                 if (taskRef) {
                     deleteTask(taskRef);
+                } else {
+                    showFeedback("请指定要删除的任务编号或名称");
                 }
                 return;
             }
             
-            voiceFeedback.textContent = "未识别到有效指令，请重试";
+            // 新增项目
+            if (command.includes("添加项目") || command.includes("创建项目") || command.includes("新增项目")) {
+                addProjectBtn.click();
+                showFeedback("打开新增项目窗口");
+                return;
+            }
+            
+            showFeedback("未识别到有效指令，请参考示例重试");
+        }
+        
+        // 显示反馈信息
+        function showFeedback(message) {
+            voiceFeedback.textContent = message;
+            voiceFeedback.style.display = 'block';
+            setTimeout(() => {
+                voiceFeedback.style.display = 'none';
+            }, 3000);
         }
         
         // 从语音指令中提取任务引用（ID或名称）
         function extractTaskReference(command) {
             // 尝试提取任务ID
-            const idMatch = command.match(/任务(\d+)/);
+            const idMatch = command.match(/任务\s*(\d+)/);
             if (idMatch) {
                 return parseInt(idMatch[1]);
             }
             
             // 尝试提取任务名称
-            const nameMatch = command.match(/任务(.+)/);
+            const nameMatch = command.match(/任务\s*([^，,.。!！?？]+)/);
             if (nameMatch) {
                 return nameMatch[1].trim();
+            }
+            
+            // 尝试直接匹配任务名称
+            for (const task of tasks) {
+                if (command.includes(task.name.toLowerCase())) {
+                    return task.id;
+                }
             }
             
             return null;
@@ -605,8 +838,9 @@
             
             if (task) {
                 openTaskModal(task);
+                showFeedback(`正在编辑任务: ${task.name}`);
             } else {
-                voiceFeedback.textContent = `未找到任务: ${taskRef}`;
+                showFeedback(`未找到任务: ${taskRef}`);
             }
         }
         
@@ -620,11 +854,12 @@
             }
             
             if (taskIndex !== -1) {
+                const taskName = tasks[taskIndex].name;
                 tasks.splice(taskIndex, 1);
                 renderGantt();
-                voiceFeedback.textContent = "任务已删除";
+                showFeedback(`任务"${taskName}"已删除`);
             } else {
-                voiceFeedback.textContent = `未找到任务: ${taskRef}`;
+                showFeedback(`未找到任务: ${taskRef}`);
             }
         }
         
@@ -645,12 +880,14 @@
                 document.getElementById('taskName').value = task.name;
                 document.getElementById('taskStart').value = task.start;
                 document.getElementById('taskDuration').value = task.duration;
+                document.getElementById('taskType').value = task.type || 'normal';
                 document.getElementById('taskProject').value = task.project;
             } else {
                 modalTitle.textContent = "新增任务";
                 document.getElementById('taskName').value = "";
                 document.getElementById('taskStart').valueAsDate = new Date();
                 document.getElementById('taskDuration').value = 1;
+                document.getElementById('taskType').value = 'normal';
                 document.getElementById('taskProject').value = "default";
             }
             taskModal.style.display = 'flex';
@@ -681,38 +918,50 @@
                     for (let i = -4; i <= 12; i++) {
                         const date = new Date(today);
                         date.setDate(today.getDate() + i * 7);
-                        timeUnits.push(date);
+                        // 找到该周的第一天
+                        const firstDayOfWeek = getFirstDayOfWeek(date);
+                        timeUnits.push(firstDayOfWeek);
                     }
                     break;
                 case 'month':
                     for (let i = -3; i <= 9; i++) {
                         const date = new Date(today);
                         date.setMonth(today.getMonth() + i);
-                        timeUnits.push(date);
+                        // 找到该月的第一天
+                        const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+                        timeUnits.push(firstDayOfMonth);
                     }
                     break;
             }
             
-            // 渲染时间轴头部
+            // 渲染时间轴头部（双层显示）
             timeUnits.forEach((date, index) => {
                 const timeUnit = document.createElement('div');
-                timeUnit.className = 'time-unit';
+                timeUnit.className = 'time-unit double';
+                
+                const timePart1 = document.createElement('div');
+                timePart1.className = 'time-part';
+                
+                const timePart2 = document.createElement('div');
+                timePart2.className = 'time-part';
                 
                 switch(currentView) {
                     case 'day':
-                        timeUnit.textContent = `${date.getMonth()+1}/${date.getDate()}`;
-                        timeUnit.style.flex = '1';
+                        timePart1.textContent = `${date.getMonth()+1}/${date.getDate()}`;
+                        timePart2.textContent = getDayName(date.getDay());
                         break;
                     case 'week':
-                        timeUnit.textContent = `第${getWeekNumber(date)}周`;
-                        timeUnit.style.flex = '1';
+                        timePart1.textContent = `第${getWeekNumber(date)}周`;
+                        timePart2.textContent = `${date.getMonth()+1}月`;
                         break;
                     case 'month':
-                        timeUnit.textContent = `${date.getFullYear()}-${date.getMonth()+1}`;
-                        timeUnit.style.flex = '1';
+                        timePart1.textContent = `${date.getFullYear()}-${date.getMonth()+1}`;
+                        timePart2.textContent = `${getMonthName(date.getMonth())}`;
                         break;
                 }
                 
+                timeUnit.appendChild(timePart1);
+                timeUnit.appendChild(timePart2);
                 timelineHeader.appendChild(timeUnit);
             });
             
@@ -764,6 +1013,9 @@
                     durationUnits = Math.ceil(task.duration / 30);
                 }
                 
+                // 确保durationUnits至少为1
+                durationUnits = Math.max(1, durationUnits);
+                
                 // 创建任务信息区域
                 const taskInfo = document.createElement('div');
                 taskInfo.className = 'task-info';
@@ -812,6 +1064,7 @@
                     if (confirm(`确定要删除任务"${task.name}"吗？`)) {
                         tasks = tasks.filter(t => t.id !== task.id);
                         renderGantt();
+                        showFeedback(`任务"${task.name}"已删除`);
                     }
                 });
                 
@@ -826,16 +1079,30 @@
                 const taskTimeline = document.createElement('div');
                 taskTimeline.className = 'task-timeline';
                 
+                const taskBarContainer = document.createElement('div');
+                taskBarContainer.className = 'task-bar-container';
+                
                 const taskBar = document.createElement('div');
-                taskBar.className = 'task-bar';
-                taskBar.textContent = task.name;
+                taskBar.className = `task-bar ${task.type === 'milestone' ? 'milestone' : ''} ${task.type === 'segmented' ? 'segmented' : ''}`;
+                taskBar.textContent = task.type === 'milestone' ? '' : task.name;
                 taskBar.style.left = `${(startIndex / timeUnits.length) * 100}%`;
                 taskBar.style.width = `${(durationUnits / timeUnits.length) * 100}%`;
+                
+                // 如果是分段任务，添加分段
+                if (task.type === 'segmented') {
+                    const segments = task.segments || 3;
+                    for (let i = 0; i < segments; i++) {
+                        const segment = document.createElement('div');
+                        segment.className = `task-segment ${i === 0 ? 'active' : 'inactive'}`;
+                        taskBar.appendChild(segment);
+                    }
+                }
                 
                 // 添加拖拽功能
                 makeDraggable(taskBar, task, timeUnits);
                 
-                taskTimeline.appendChild(taskBar);
+                taskBarContainer.appendChild(taskBar);
+                taskTimeline.appendChild(taskBarContainer);
                 
                 taskElement.appendChild(taskInfo);
                 taskElement.appendChild(taskTimeline);
@@ -857,10 +1124,31 @@
                 document.addEventListener('mouseup', onMouseUp);
             });
             
+            element.addEventListener('touchstart', function(e) {
+                isDragging = true;
+                startX = e.touches[0].clientX;
+                startLeft = parseFloat(element.style.left) || 0;
+                document.addEventListener('touchmove', onTouchMove);
+                document.addEventListener('touchend', onTouchEnd);
+            });
+            
             function onMouseMove(e) {
                 if (!isDragging) return;
                 
                 const dx = e.clientX - startX;
+                const containerWidth = element.parentElement.offsetWidth;
+                const deltaPercent = (dx / containerWidth) * 100;
+                
+                let newLeft = startLeft + deltaPercent;
+                newLeft = Math.max(0, Math.min(newLeft, 100 - parseFloat(element.style.width)));
+                
+                element.style.left = `${newLeft}%`;
+            }
+            
+            function onTouchMove(e) {
+                if (!isDragging) return;
+                
+                const dx = e.touches[0].clientX - startX;
                 const containerWidth = element.parentElement.offsetWidth;
                 const deltaPercent = (dx / containerWidth) * 100;
                 
@@ -877,6 +1165,20 @@
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
                 
+                updateTaskDate(element, task, timeUnits);
+            }
+            
+            function onTouchEnd() {
+                if (!isDragging) return;
+                
+                isDragging = false;
+                document.removeEventListener('touchmove', onTouchMove);
+                document.removeEventListener('touchend', onTouchEnd);
+                
+                updateTaskDate(element, task, timeUnits);
+            }
+            
+            function updateTaskDate(element, task, timeUnits) {
                 // 更新任务的开始时间
                 const newLeftPercent = parseFloat(element.style.left);
                 const unitIndex = Math.round((newLeftPercent / 100) * timeUnits.length);
@@ -898,8 +1200,22 @@
                     }
                     
                     renderGantt();
+                    showFeedback(`已调整任务"${task.name}"的日期`);
                 }
             }
+        }
+        
+        // 工具函数：获取星期名称
+        function getDayName(dayIndex) {
+            const days = ['日', '一', '二', '三', '四', '五', '六'];
+            return `周${days[dayIndex]}`;
+        }
+        
+        // 工具函数：获取月份名称
+        function getMonthName(monthIndex) {
+            const months = ['一月', '二月', '三月', '四月', '五月', '六月', 
+                           '七月', '八月', '九月', '十月', '十一月', '十二月'];
+            return months[monthIndex];
         }
         
         // 工具函数：获取一周的周数
@@ -927,12 +1243,16 @@
         // 导出功能
         function exportGantt() {
             // 导出为图片
-            html2canvas(document.querySelector('.gantt-container')).then(canvas => {
-                const link = document.createElement('a');
-                link.download = 'gantt-chart.png';
-                link.href = canvas.toDataURL();
-                link.click();
-            });
+            if (typeof html2canvas !== 'undefined') {
+                html2canvas(document.querySelector('.gantt-container')).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = 'gantt-chart.png';
+                    link.href = canvas.toDataURL();
+                    link.click();
+                });
+            } else {
+                alert('导出图片功能需要加载html2canvas库');
+            }
             
             // 导出数据
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({projects, tasks}, null, 2));
@@ -942,6 +1262,14 @@
             document.body.appendChild(downloadAnchorNode);
             downloadAnchorNode.click();
             downloadAnchorNode.remove();
+            
+            showFeedback('甘特图数据已导出');
+        }
+        
+        // 更新当前时间
+        function updateCurrentTime() {
+            const now = new Date();
+            currentTimeEl.textContent = now.toLocaleString('zh-CN');
         }
         
         // 初始化
@@ -952,8 +1280,18 @@
             // 渲染甘特图
             renderGantt();
             
+            // 更新当前时间
+            updateCurrentTime();
+            setInterval(updateCurrentTime, 1000);
+            
             // 事件监听
             voiceControlBtn.addEventListener('click', function() {
+                if (!speechSupport) {
+                    voiceFeedback.textContent = "您的设备不支持语音识别，请使用文本指令";
+                    voiceFeedback.style.display = 'block';
+                    return;
+                }
+                
                 if (isListening) {
                     recognition.stop();
                 } else {
@@ -961,6 +1299,21 @@
                     if (voiceCommandPanel.classList.contains('active')) {
                         recognition.start();
                     }
+                }
+            });
+            
+            // 文本指令提交
+            submitTextCommandBtn.addEventListener('click', function() {
+                const command = textCommandInput.value.trim();
+                if (command) {
+                    processVoiceCommand(command);
+                    textCommandInput.value = '';
+                }
+            });
+            
+            textCommandInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    submitTextCommandBtn.click();
                 }
             });
             
@@ -976,6 +1329,7 @@
                 const name = document.getElementById('taskName').value;
                 const start = document.getElementById('taskStart').value;
                 const duration = parseInt(document.getElementById('taskDuration').value);
+                const type = document.getElementById('taskType').value;
                 const project = document.getElementById('taskProject').value;
                 
                 // 检查是新增还是编辑
@@ -985,7 +1339,14 @@
                     // 更新现有任务
                     tasks[existingTaskIndex].start = start;
                     tasks[existingTaskIndex].duration = duration;
+                    tasks[existingTaskIndex].type = type;
                     tasks[existingTaskIndex].project = project;
+                    
+                    if (type === 'segmented') {
+                        tasks[existingTaskIndex].segments = 3;
+                    }
+                    
+                    showFeedback(`任务"${name}"已更新`);
                 } else {
                     // 创建新任务
                     const newTask = {
@@ -993,9 +1354,16 @@
                         name,
                         start,
                         duration,
+                        type,
                         project
                     };
+                    
+                    if (type === 'segmented') {
+                        newTask.segments = 3;
+                    }
+                    
                     tasks.push(newTask);
+                    showFeedback(`任务"${name}"已创建`);
                 }
                 
                 taskModal.style.display = 'none';
@@ -1025,6 +1393,8 @@
                     newOption.value = newProject.id;
                     newOption.textContent = newProject.name;
                     projectSelect.appendChild(newOption);
+                    
+                    showFeedback(`项目"${projectName}"已创建`);
                 }
             });
             
@@ -1036,6 +1406,11 @@
                     taskModal.style.display = 'none';
                 }
             });
+            
+            // 触摸设备优化
+            if ('ontouchstart' in window) {
+                document.body.classList.add('touch-device');
+            }
         });
     </script>
     
