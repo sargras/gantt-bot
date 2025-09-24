@@ -6,6 +6,7 @@
     <title>智能甘特图语音助手</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -24,7 +25,8 @@
                     <button class="control-btn" onclick="changeViewMode('Day')">日视图</button>
                     <button class="control-btn active" onclick="changeViewMode('Week')">周视图</button>
                     <button class="control-btn" onclick="changeViewMode('Month')">月视图</button>
-                    <button class="control-btn" onclick="exportImage()">💾 导出图片</button>
+                    <button class="control-btn" onclick="exportAsImage()">📷 导出图片</button>
+                    <button class="control-btn" onclick="exportProjectData()">💾 导出数据</button>
                 </div>
             </div>
             <div id="gantt-container" class="gantt-container">
@@ -49,7 +51,7 @@
             <!-- 语音输入区域 -->
             <div id="voiceArea" class="input-area active">
                 <div class="voice-controls">
-                    <button id="voiceButton" class="voice-btn" onclick="toggleVoiceRecognition()">
+                    <button id="voiceButton" class="voice-btn" onclick="handleVoiceInput()">
                         <span class="voice-icon">🎤</span>
                         <span id="voiceText">点击开始语音输入</span>
                     </button>
@@ -67,12 +69,18 @@
             <!-- 文本输入区域 -->
             <div id="textArea" class="input-area">
                 <textarea id="textInput" placeholder="请输入指令...&#10;&#10;示例指令：&#10;• 创建网站项目，三周时间&#10;• 添加测试任务，需要5天&#10;• 把开发时间延长到10天&#10;• 删除文档编写任务"></textarea>
+                
+                <div class="time-help">
+                    <strong>💡 时间格式支持：</strong>
+                    <span>3天、2周、下周一开始、明天开始、2024-01-01开始</span>
+                </div>
             </div>
 
             <!-- 操作按钮 -->
             <div class="action-buttons">
                 <button class="btn-primary" onclick="processCommand()">🚀 执行指令</button>
                 <button class="btn-secondary" onclick="showHelp()">❓ 指令帮助</button>
+                <button class="btn-import" onclick="importProjectData()">📁 导入数据</button>
                 <button class="btn-tertiary" onclick="clearAll()">🗑️ 清空重来</button>
             </div>
 
@@ -114,7 +122,7 @@
                         <span>在项目末尾添加新任务</span>
                     </div>
                     <div class="command-item">
-                        <code>"在开发后加入代码评审"</code>
+                        <code>"在开发后加入代码评审，3天时间"</code>
                         <span>在特定任务后插入任务</span>
                     </div>
                 </div>
@@ -130,23 +138,14 @@
                         <span>调整任务开始时间</span>
                     </div>
                 </div>
-                
-                <div class="command-category">
-                    <h4>🗑️ 删除任务</h4>
-                    <div class="command-item">
-                        <code>"删除文档编写任务"</code>
-                        <span>移除指定任务</span>
-                    </div>
-                    <div class="command-item">
-                        <code>"取消性能测试环节"</code>
-                        <span>删除匹配的任务</span>
-                    </div>
-                </div>
             </div>
         </div>
 
         <!-- 消息提示 -->
         <div id="messageToast" class="toast"></div>
+
+        <!-- 隐藏的文件输入 -->
+        <input type="file" id="fileInput" accept=".json" style="display: none;">
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
