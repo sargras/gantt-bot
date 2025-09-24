@@ -146,6 +146,73 @@
 
         <!-- 隐藏的文件输入 -->
         <input type="file" id="fileInput" accept=".json" style="display: none;">
+                <!-- 语音输入引导提示框 -->
+        <div id="voiceGuideModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>🎤 语音输入引导</h3>
+                    <button class="close-btn" onclick="closeVoiceGuide()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="step-container">
+                        <div class="step-item" id="step1">
+                            <div class="step-icon">1</div>
+                            <div class="step-content">
+                                <div class="step-title">检查浏览器支持</div>
+                                <div class="step-status" id="step1Status">等待检查...</div>
+                            </div>
+                        </div>
+                        
+                        <div class="step-item" id="step2">
+                            <div class="step-icon">2</div>
+                            <div class="step-content">
+                                <div class="step-title">请求麦克风权限</div>
+                                <div class="step-status" id="step2Status">等待授权...</div>
+                            </div>
+                        </div>
+                        
+                        <div class="step-item" id="step3">
+                            <div class="step-icon">3</div>
+                            <div class="step-content">
+                                <div class="step-title">语音识别准备</div>
+                                <div class="step-status" id="step3Status">等待启动...</div>
+                            </div>
+                        </div>
+                        
+                        <div class="step-item" id="step4">
+                            <div class="step-icon">🎤</div>
+                            <div class="step-content">
+                                <div class="step-title">开始说话</div>
+                                <div class="step-status" id="step4Status">请说话...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="voice-fallback" id="voiceFallback" style="display: none;">
+                        <div class="fallback-title">📱 备用方案：使用设备自带语音输入</div>
+                        <div class="fallback-steps">
+                            <div class="fallback-step">
+                                <span class="fallback-number">1</span>
+                                <span>点击下方输入框</span>
+                            </div>
+                            <div class="fallback-step">
+                                <span class="fallback-number">2</span>
+                                <span>点击键盘上的🎤图标</span>
+                            </div>
+                            <div class="fallback-step">
+                                <span class="fallback-number">3</span>
+                                <span>开始说话，文字会自动填入</span>
+                            </div>
+                        </div>
+                        <button class="btn-primary" onclick="useFallbackInput()">使用备用方案</button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" onclick="closeVoiceGuide()">取消</button>
+                    <button class="btn-primary" id="startVoiceBtn" onclick="startVoiceProcess()">开始语音输入</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
